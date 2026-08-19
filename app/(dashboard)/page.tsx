@@ -1,0 +1,127 @@
+"use client";
+
+import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
+import { Users, UtensilsCrossed, ThumbsUp, Utensils } from "lucide-react";
+import { statsApi, reviewApi } from "@/lib/api";
+import { StatCard } from "@/components/dashboard/StatCard";
+import { UserGrowthChart } from "@/components/dashboard/UserGrowthChart";
+import { RestaurantBarChart } from "@/components/dashboard/RestaurantBarChart";
+import { ActiveRestaurantsDonut } from "@/components/dashboard/ActiveRestaurantsDonut";
+import { ReviewCard } from "@/components/dashboard/ReviewCard";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatNumber } from "@/lib/utils";
+
+export default function DashboardOverviewPage() {
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ["dashboard-stats"],
+    queryFn: () => statsApi.getDashboardStats(),
+  });
+
+  const { data: reviewsData, isLoading: reviewsLoading } = useQuery({
+    queryKey: ["top-reviews"],
+    queryFn: () => reviewApi.getAllReviews({ limit: 2 }),
+  });
+
+  return (
+    <div className="space-y-6">
+      {/* 4 Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {statsLoading ? (
+          <>
+            <Skeleton className="h-28 rounded-2xl bg-white" />
+            <Skeleton className="h-28 rounded-2xl bg-white" />
+            <Skeleton className="h-28 rounded-2xl bg-white" />
+            <Skeleton className="h-28 rounded-2xl bg-white" />
+          </>
+        ) : (
+          <>
+            <StatCard
+              title="Gesamtzahl der Nutzer"
+              value={formatNumber(stats?.totalUsers || 32000)}
+              icon={Users}
+            />
+            <StatCard
+              title="Gesamtzahl der Restaurants"
+              value={formatNumber(stats?.totalRestaurants || 28000)}
+              icon={UtensilsCrossed}
+            />
+            <StatCard
+              title="Gesamtbewertungen"
+              value={stats?.totalReviews?.toString() || "534"}
+              icon={ThumbsUp}
+            />
+            <StatCard
+              title="Aktive Restaurants"
+              value={`${stats?.activeRestaurantsPercent || 78} %`}
+              icon={Utensils}
+            />
+          </>
+        )}
+      </div>
+
+      {/* 2 Middle Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {statsLoading ? (
+          <>
+            <Skeleton className="h-80 rounded-2xl bg-white" />
+            <Skeleton className="h-80 rounded-2xl bg-white" />
+          </>
+        ) : (
+          <>
+            <UserGrowthChart data={stats?.userGrowthData} />
+            <RestaurantBarChart data={stats?.restaurantWeeklyData} />
+          </>
+        )}
+      </div>
+
+      {/* Bottom Section: Top Reviews & Active Restaurants Donut */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left 2 Cols: Top Reviews */}
+        <div className="lg:col-span-2 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-[#1E1E1E]">
+                Top-Bewertungen
+              </h2>
+              <p className="text-xs text-[#718096] mt-0.5">
+                Sehen Sie sich die Top-Bewertungen von Nutzern an.
+              </p>
+            </div>
+
+            <Link
+              href="/reviews"
+              className="text-xs sm:text-sm font-semibold text-[#0097A7] hover:underline"
+            >
+              Alle anzeigen
+            </Link>
+          </div>
+
+          {reviewsLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-44 rounded-2xl bg-white" />
+              <Skeleton className="h-44 rounded-2xl bg-white" />
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {reviewsData?.data?.slice(0, 2).map((review) => (
+                <ReviewCard key={review._id} review={review} />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Right 1 Col: Donut Chart */}
+        <div className="lg:col-span-1">
+          {statsLoading ? (
+            <Skeleton className="h-96 rounded-2xl bg-white" />
+          ) : (
+            <ActiveRestaurantsDonut
+              activePercent={stats?.activeRestaurantsPercent || 78}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
