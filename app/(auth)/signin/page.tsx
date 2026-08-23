@@ -11,8 +11,8 @@ import { Input } from "@/components/ui/input";
 
 export default function SignInPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("admin@gmail.com");
-  const [password, setPassword] = useState("123456");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -40,7 +40,7 @@ export default function SignInPage() {
         router.push("/");
         router.refresh();
       }
-    } catch (err: any) {
+    } catch {
       toast.error("Ein unerwarteter Fehler ist aufgetreten.");
     } finally {
       setIsLoading(false);

@@ -38,22 +38,22 @@ export default function DashboardOverviewPage() {
           <>
             <StatCard
               title="Gesamtzahl der Nutzer"
-              value={formatNumber(stats?.totalUsers || 32000)}
+              value={formatNumber(stats?.totalUsers ?? 0)}
               icon={Users}
             />
             <StatCard
               title="Gesamtzahl der Restaurants"
-              value={formatNumber(stats?.totalRestaurants || 28000)}
+              value={formatNumber(stats?.totalRestaurants ?? 0)}
               icon={UtensilsCrossed}
             />
             <StatCard
               title="Gesamtbewertungen"
-              value={stats?.totalReviews?.toString() || "534"}
+              value={(stats?.totalReviews ?? 0).toString()}
               icon={ThumbsUp}
             />
             <StatCard
               title="Aktive Restaurants"
-              value={`${stats?.activeRestaurantsPercent || 78} %`}
+              value={`${stats?.activeRestaurantsPercent ?? 0} %`}
               icon={Utensils}
             />
           </>
@@ -107,6 +107,11 @@ export default function DashboardOverviewPage() {
               {reviewsData?.data?.slice(0, 2).map((review) => (
                 <ReviewCard key={review._id} review={review} />
               ))}
+              {reviewsData?.data.length === 0 && (
+                <div className="rounded-2xl border border-[#F0ECE1] bg-white py-10 text-center text-sm text-[#718096]">
+                  Keine Bewertungen gefunden.
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -117,7 +122,7 @@ export default function DashboardOverviewPage() {
             <Skeleton className="h-96 rounded-2xl bg-white" />
           ) : (
             <ActiveRestaurantsDonut
-              activePercent={stats?.activeRestaurantsPercent || 78}
+              activePercent={stats?.activeRestaurantsPercent ?? 0}
             />
           )}
         </div>

@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { Menu, User as UserIcon } from "lucide-react";
@@ -13,11 +12,6 @@ interface HeaderProps {
 export function Header({ onOpenMobileMenu }: HeaderProps) {
   const pathname = usePathname();
   const { user } = useCurrentUser();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   const getPageTitle = () => {
     if (pathname === "/") return "Dashboard-Übersicht";
@@ -28,10 +22,10 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
     return "Dashboard";
   };
 
-  const userName = user?.name || "Sozib Hossain";
+  const userName = user?.name ?? "";
   const userRole =
-    user?.role === "admin" ? "Administrator" : user?.role || "Administrator";
-  const userAvatar = user?.avatar || (user as any)?.image;
+    user?.role === "admin" ? "Administrator" : user?.role ?? "";
+  const userAvatar = user?.avatar || user?.image;
 
   return (
     <header className="flex items-center justify-between px-6 py-4 bg-white border-b border-[#F0ECE1] sticky top-0 z-30 shadow-2xs">
@@ -55,15 +49,15 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
       <div className="flex items-center gap-3 bg-transparent">
         <div className="text-right hidden sm:block">
           <div className="text-sm font-bold text-[#1E1E1E] leading-tight">
-            {mounted ? userName : "Administrator"}
+            {userName || "\u2014"}
           </div>
           <div className="text-xs text-[#718096] capitalize">
-            {mounted ? userRole : "Administrator"}
+            {userRole || "\u2014"}
           </div>
         </div>
 
         <div className="relative w-10 h-10 rounded-full overflow-hidden border border-[#CBD5E1] bg-gray-100 shrink-0 flex items-center justify-center">
-          {mounted && userAvatar ? (
+          {userAvatar ? (
             <Image
               src={userAvatar}
               alt={userName}

@@ -1,7 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { getSession } from "next-auth/react";
 
-// Clean base URL so it points to /api
 const rawBaseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:5000/api";
 export const API_BASE_URL = rawBaseUrl.endsWith("/v1")
   ? rawBaseUrl.replace(/\/v1$/, "")
@@ -9,12 +8,16 @@ export const API_BASE_URL = rawBaseUrl.endsWith("/v1")
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
-  headers: {
-    "Content-Type": "application/json",
-  },
+  headers: { "Content-Type": "application/json" },
 });
 
-// Request Interceptor: Attach JWT Token from NextAuth session or localStorage
+export function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (axios.isAxiosError<{ message?: string }>(error)) {
+    return error.response?.data?.message ?? fallback;
+  }
+  return error instanceof Error ? error.message : fallback;
+}
+
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     if (typeof window !== "undefined") {
@@ -24,33 +27,23 @@ api.interceptors.request.use(
           config.headers.Authorization = `Bearer ${session.accessToken}`;
           return config;
         }
-      } catch (err) {
-        // Fallback
+      } catch {
+        // Fall through to the locally stored token.
       }
 
       const token = localStorage.getItem("nk_access_token");
-      if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-      }
+      if (token) config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-// Response Interceptor
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
-    return Promise.reject(error);
-  }
+  (error: AxiosError) => Promise.reject(error)
 );
 
-// ----------------------------------------------------
-// TypeScript Interfaces
-// ----------------------------------------------------
 export interface UserItem {
   _id: string;
   name: string;
@@ -59,62 +52,50 @@ export interface UserItem {
   role?: string;
   isVerified?: boolean;
   avatar?: string;
+  image?: string;
   country?: string;
   cityState?: string;
   createdAt?: string;
   updatedAt?: string;
-  checkInCount?: number;
-  reviewCount?: number;
-  status?: "Aktiv" | "Inaktiv";
+  checkInCount: number;
+  reviewCount: number;
+  status: "Aktiv" | "Inaktiv";
 }
 
-export interface DishItem {
+export interface CategoryItem {
   _id: string;
-  title: string;
-  shortDescription?: string;
-  description: string;
-  price: number;
-  sdRating?: number;
-  userRating?: number;
-  reviewCount?: number;
-  images: string[];
-  category?: { _id: string; categoryName: string } | string;
-  ingredients?: string[];
-  process?: string;
+  categoryName: string;
+}
+
+export interface ScheduleDateItem {
+  _id?: string;
+  date: string;
+  active?: boolean;
+  participationsLimit?: number;
+  bookedCount?: number;
 }
 
 export interface RestaurantItem {
   _id: string;
   title: string;
-  name?: string;
-  email?: string;
   shortDescription?: string;
   description: string;
   price: number;
-  location?: {
-    country: string;
-    city: string;
-  };
-  phone?: string;
-  openingHours?: string;
-  reservationNote?: string;
+  location?: { country?: string; city?: string };
   images: string[];
-  offers?: string[];
+  offers: string[];
   status: "activate" | "deactivate";
-  category?: any;
-  rating?: number;
-  reviewCount?: number;
-  totalCheckIns?: number;
-  totalViews?: number;
-  specialties?: DishItem[];
-  diningImages?: string[];
-  allDishes?: DishItem[];
+  category?: CategoryItem | string;
+  rating: number;
+  reviewCount: number;
+  totalCheckIns: number;
+  scheduleDates: ScheduleDateItem[];
   createdAt?: string;
 }
 
 export interface ReviewItem {
   _id: string;
-  userID: {
+  userID?: {
     _id: string;
     name: string;
     email: string;
@@ -124,7 +105,8 @@ export interface ReviewItem {
     _id: string;
     title: string;
     images?: string[];
-    location?: { country: string; city: string };
+    location?: { country?: string; city?: string };
+    category?: CategoryItem | string;
   };
   restaurantName?: string;
   restaurantLocation?: string;
@@ -132,13 +114,17 @@ export interface ReviewItem {
   dishName?: string;
   dishImage?: string;
   mealCategory?: string;
-  guestCount?: number;
-  reviewDate?: string;
-  reviewTime?: string;
-  timeAgo?: string;
   reviewComment: string;
   ratings: number;
   createdAt?: string;
+}
+
+export interface CheckInItem {
+  _id: string;
+  restaurantName?: string;
+  restaurantLocation?: string;
+  restaurantImage?: string;
+  scheduleDate?: string;
 }
 
 export interface DashboardStats {
@@ -157,9 +143,104 @@ export interface MetaPagination {
   itemsPerPage: number;
 }
 
-// ----------------------------------------------------
-// Real Backend API Service Layer
-// ----------------------------------------------------
+export interface BulkDeleteResponse {
+  success: boolean;
+  deletedCount: number;
+  skippedCount?: number;
+  message?: string;
+}
+
+interface RawUser
+  extends Omit<UserItem, "checkInCount" | "reviewCount" | "status"> {
+  checkInCount?: number;
+  reviewCount?: number;
+}
+
+interface RawRestaurant extends Partial<RestaurantItem> {
+  _id: string;
+  title: string;
+  description: string;
+  price: number;
+}
+
+type RawReview = Omit<
+  ReviewItem,
+  | "restaurantName"
+  | "restaurantLocation"
+  | "restaurantAvatar"
+  | "dishName"
+  | "dishImage"
+  | "mealCategory"
+>;
+
+interface RawBooking {
+  _id: string;
+  isBooked?: boolean;
+  paymentStatus?: string;
+  scheduleDate?: string;
+  dealsId?: {
+    title?: string;
+    images?: string[];
+    location?: { country?: string; city?: string };
+  };
+}
+
+const emptyMeta = (
+  params: { page?: number; limit?: number } | undefined,
+  totalItems: number
+): MetaPagination => {
+  const itemsPerPage = params?.limit ?? 10;
+  return {
+    currentPage: params?.page ?? 1,
+    totalPages: Math.ceil(totalItems / itemsPerPage),
+    totalItems,
+    itemsPerPage,
+  };
+};
+
+const mapUser = (user: RawUser): UserItem => ({
+  ...user,
+  checkInCount: user.checkInCount ?? 0,
+  reviewCount: user.reviewCount ?? 0,
+  status: user.isVerified ? "Aktiv" : "Inaktiv",
+});
+
+const mapRestaurant = (deal: RawRestaurant): RestaurantItem => ({
+  _id: deal._id,
+  title: deal.title,
+  shortDescription: deal.shortDescription,
+  description: deal.description,
+  price: deal.price,
+  location: deal.location,
+  images: deal.images ?? [],
+  offers: deal.offers ?? [],
+  status: deal.status === "activate" ? "activate" : "deactivate",
+  category: deal.category,
+  rating: deal.rating ?? 0,
+  reviewCount: deal.reviewCount ?? 0,
+  totalCheckIns: deal.totalCheckIns ?? 0,
+  scheduleDates: deal.scheduleDates ?? [],
+  createdAt: deal.createdAt,
+});
+
+const mapReview = (review: RawReview): ReviewItem => {
+  const deal = review.dealID;
+  const location = [deal?.location?.city, deal?.location?.country]
+    .filter(Boolean)
+    .join(", ");
+  const category = deal?.category;
+
+  return {
+    ...review,
+    restaurantName: deal?.title,
+    restaurantLocation: location || undefined,
+    restaurantAvatar: deal?.images?.[0],
+    dishName: deal?.title,
+    dishImage: deal?.images?.[0],
+    mealCategory:
+      typeof category === "object" ? category.categoryName : undefined,
+  };
+};
 
 export const authApi = {
   login: async (credentials: { email: string; password: string }) => {
@@ -170,12 +251,8 @@ export const authApi = {
     }
     return response.data;
   },
-
-  forgotPassword: async (data: { email: string }) => {
-    const response = await api.post("/auth/forgot-password", data);
-    return response.data;
-  },
-
+  forgotPassword: async (data: { email: string }) =>
+    (await api.post("/auth/forgot-password", data)).data,
   verifyOtp: async (data: { email: string; code: string }) => {
     const response = await api.post("/auth/verify", data);
     if (response.data?.token && typeof window !== "undefined") {
@@ -183,335 +260,162 @@ export const authApi = {
     }
     return response.data;
   },
-
-  resetPassword: async (data: { token?: string; email: string; password: string }) => {
-    const response = await api.post("/auth/reset-password", data);
-    return response.data;
-  },
-
-  changePassword: async (data: { currentPassword: string; newPassword: string; userId: string }) => {
-    const response = await api.post("/auth/change-password", data);
-    return response.data;
-  },
-
-  updateProfile: async (formData: FormData) => {
-    const response = await api.put("/auth/update-profile", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
-    return response.data;
-  },
-
-  updateProfileJson: async (data: { userId: string; name?: string; phoneNumber?: string; country?: string; cityState?: string; avatar?: string }) => {
-    const response = await api.put("/auth/update-profile", data);
-    return response.data;
-  },
-
-  getUserById: async (id: string) => {
-    const response = await api.get(`/auth/single-user/${id}`);
-    return response.data;
-  },
+  resetPassword: async (data: {
+    token?: string;
+    email: string;
+    password: string;
+  }) => (await api.post("/auth/reset-password", data)).data,
+  changePassword: async (data: {
+    currentPassword: string;
+    newPassword: string;
+    userId: string;
+  }) => (await api.post("/auth/change-password", data)).data,
+  updateProfile: async (formData: FormData) =>
+    (
+      await api.put("/auth/update-profile", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+    ).data,
+  updateProfileJson: async (data: {
+    userId: string;
+    name?: string;
+    phoneNumber?: string;
+    country?: string;
+    cityState?: string;
+    avatar?: string;
+  }) => (await api.put("/auth/update-profile", data)).data,
+  getUserById: async (id: string) =>
+    mapUser((await api.get(`/auth/single-user/${id}`)).data.data),
 };
 
 export const userApi = {
-  getAllUsers: async (params?: { page?: number; limit?: number; search?: string }): Promise<{ data: UserItem[]; meta: MetaPagination }> => {
+  getAllUsers: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<{ data: UserItem[]; meta: MetaPagination }> => {
     const response = await api.get("/auth/all/user", { params });
-    const rawUsers = response.data?.data || [];
-    const meta = response.data?.meta || {
-      currentPage: params?.page || 1,
-      totalPages: Math.ceil(rawUsers.length / (params?.limit || 10)) || 1,
-      totalItems: rawUsers.length,
-      itemsPerPage: params?.limit || 10,
-    };
-
-    const mappedUsers: UserItem[] = rawUsers.map((u: any, idx: number) => ({
-      _id: u._id,
-      name: u.name || "Benutzer",
-      email: u.email,
-      phoneNumber: u.phoneNumber || "+49 151 23456789",
-      role: u.role || "user",
-      avatar: u.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-      cityState: u.cityState || u.country || "München, Deutschland",
-      checkInCount: (idx * 3 + 2) % 10 + 1,
-      reviewCount: (idx * 2 + 1) % 8 + 1,
-      status: u.isVerified !== false ? "Aktiv" : "Inaktiv",
-      createdAt: u.createdAt,
-    }));
-
+    const users: RawUser[] = response.data?.data ?? [];
     return {
-      data: mappedUsers,
-      meta,
+      data: users.map(mapUser),
+      meta: response.data?.meta ?? emptyMeta(params, users.length),
     };
   },
-
   getUserById: async (id: string): Promise<UserItem> => {
-    const response = await api.get(`/auth/single-user/${id}`);
-    const u = response.data?.data || {};
-    return {
-      _id: u._id || id,
-      name: u.name || "Benutzer",
-      email: u.email || "user@gmail.com",
-      phoneNumber: u.phoneNumber || "+49 151 23456789",
-      cityState: u.cityState || u.country || "München, Deutschland",
-      status: u.isVerified !== false ? "Aktiv" : "Inaktiv",
-      checkInCount: 7,
-      reviewCount: 4,
-      avatar: u.avatar || "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80",
-    };
+    const [userResponse, bookingsResponse, reviewsResponse] = await Promise.all([
+      api.get(`/auth/single-user/${id}`),
+      api.get("/bookings/notify-false", { params: { user: id } }),
+      api.get("/reviews", { params: { userId: id, page: 1, limit: 1 } }),
+    ]);
+    const bookings: RawBooking[] = bookingsResponse.data?.data ?? [];
+    return mapUser({
+      ...userResponse.data.data,
+      checkInCount: bookings.filter(
+        (booking) => booking.isBooked && booking.paymentStatus === "complete"
+      ).length,
+      reviewCount: reviewsResponse.data?.meta?.totalItems ?? 0,
+    });
   },
+  bulkDeleteUsers: async (ids: string[]): Promise<BulkDeleteResponse> =>
+    (await api.delete("/auth/delete/users", { data: { ids } })).data,
+};
 
-  deleteUser: async (userId: string) => {
-    const response = await api.delete(`/auth/delete/user?userId=${userId}`);
-    return response.data;
+export const bookingApi = {
+  getUserCheckIns: async (userId: string): Promise<CheckInItem[]> => {
+    const response = await api.get("/bookings/notify-false", {
+      params: { user: userId },
+    });
+    const bookings: RawBooking[] = response.data?.data ?? [];
+    return bookings
+      .filter(
+        (booking) => booking.isBooked && booking.paymentStatus === "complete"
+      )
+      .map((booking) => {
+        const location = [
+          booking.dealsId?.location?.city,
+          booking.dealsId?.location?.country,
+        ]
+          .filter(Boolean)
+          .join(", ");
+        return {
+          _id: booking._id,
+          restaurantName: booking.dealsId?.title,
+          restaurantLocation: location || undefined,
+          restaurantImage: booking.dealsId?.images?.[0],
+          scheduleDate: booking.scheduleDate,
+        };
+      });
   },
 };
 
 export const restaurantApi = {
-  getAllRestaurants: async (params?: { page?: number; limit?: number; status?: string; search?: string }): Promise<{ data: RestaurantItem[]; meta: MetaPagination }> => {
+  getAllRestaurants: async (params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    search?: string;
+  }): Promise<{ data: RestaurantItem[]; meta: MetaPagination }> => {
     const response = await api.get("/deals", {
       params: {
         showAll: "true",
-        page: params?.page || 1,
-        limit: params?.limit || 10,
-        title: params?.search,
+        page: params?.page ?? 1,
+        limit: params?.limit ?? 10,
+        title: params?.search || undefined,
+        status: params?.status || undefined,
       },
     });
-
-    const rawDeals = response.data?.deals || [];
-    const pagination = response.data?.pagination || {};
-
-    const mappedDeals: RestaurantItem[] = rawDeals.map((d: any, idx: number) => {
-      const city = d.location?.city || "München";
-      const country = d.location?.country || "Deutschland";
-
-      return {
-        _id: d._id,
-        title: d.title,
-        name: d.title,
-        email: "contact@" + d.title.toLowerCase().replace(/[^a-z0-9]/g, "") + ".de",
-        description: d.description || d.shortDescription,
-        shortDescription: d.shortDescription,
-        price: d.price || 15.45,
-        location: { country, city },
-        phone: "+49 151 23456789",
-        openingHours: "Montag bis Samstag (9 bis 20 Uhr)",
-        reservationNote: "Reservation usually required",
-        images: d.images?.length > 0 ? d.images : ["https://images.unsplash.com/photo-1544025162-d76694265947?w=600&auto=format&fit=crop&q=80"],
-        status: d.status === "activate" ? "activate" : "deactivate",
-        rating: [4.8, 4.5, 4.2, 4.7, 4.6][idx % 5] || 4.5,
-        reviewCount: [12, 8, 15, 6, 9][idx % 5] || 5,
-        totalCheckIns: 1200,
-        totalViews: 13600,
-      };
-    });
-
+    const deals: RawRestaurant[] = response.data?.deals ?? [];
     return {
-      data: mappedDeals,
-      meta: {
-        currentPage: pagination.currentPage || params?.page || 1,
-        totalPages: pagination.totalPages || Math.ceil(mappedDeals.length / (params?.limit || 10)) || 1,
-        totalItems: pagination.totalItems || mappedDeals.length,
-        itemsPerPage: pagination.itemsPerPage || params?.limit || 10,
-      },
+      data: deals.map(mapRestaurant),
+      meta: response.data?.pagination ?? emptyMeta(params, deals.length),
     };
   },
-
   getRestaurantById: async (id: string): Promise<RestaurantItem> => {
     const response = await api.get(`/deals/${id}`);
-    const d = response.data?.deal || {};
-    const city = d.location?.city || "München";
-    const country = d.location?.country || "Deutschland";
-
-    const defaultImages = [
-      "https://images.unsplash.com/photo-1599921841143-819065a55cc6?w=600&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&auto=format&fit=crop&q=80",
-      "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&auto=format&fit=crop&q=80",
-    ];
-
-    const itemImages = d.images?.length > 0 ? d.images : defaultImages;
-
-    return {
-      _id: d._id || id,
-      title: d.title || "Restaurant",
-      name: d.title || "Restaurant",
-      email: "contact@" + (d.title || "restaurant").toLowerCase().replace(/[^a-z0-9]/g, "") + ".de",
-      description: d.description || "Exquisite kulinarische Spezialitäten frisch zubereitet.",
-      shortDescription: d.shortDescription,
-      price: d.price || 15.45,
-      location: { country, city },
-      phone: "+49 151 23456789",
-      openingHours: "Montag bis Samstag (9 bis 20 Uhr)",
-      reservationNote: "Reservation usually required",
-      images: itemImages,
-      status: d.status || "activate",
-      rating: 4.8,
-      reviewCount: 1240,
-      totalCheckIns: 1200,
-      totalViews: 13600,
-      diningImages: [
-        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=600&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1552566626-52f8b828add9?w=600&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1550966871-3ed3cdb5ed0c?w=600&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1543007630-9710e4a00a20?w=600&auto=format&fit=crop&q=80",
-      ],
-      specialties: [
-        {
-          _id: `${id}-spec-1`,
-          title: d.title || "Schnitzel",
-          description: d.description || "Klassische Zubereitung mit besten Zutaten.",
-          price: d.price || 15.45,
-          sdRating: 4.5,
-          userRating: 4.5,
-          reviewCount: 12,
-          images: itemImages,
-        },
-        {
-          _id: `${id}-spec-2`,
-          title: "Gebratenes Steak",
-          description: "Saftig gegrilltes Rumpsteak mit Kräuterbutter, Rosmarinkartoffeln und Grillgemüse.",
-          price: 24.50,
-          sdRating: 4.8,
-          userRating: 4.8,
-          reviewCount: 28,
-          images: [
-            "https://images.unsplash.com/photo-1544025162-d76694265947?w=600&auto=format&fit=crop&q=80",
-            "https://images.unsplash.com/photo-1599921841143-819065a55cc6?w=600&auto=format&fit=crop&q=80",
-          ],
-        },
-        {
-          _id: `${id}-spec-3`,
-          title: "Traditionelle Spezialität",
-          description: "Traditionelle Rezeptur frisch vom Küchenchef serviert.",
-          price: 18.50,
-          sdRating: 4.5,
-          userRating: 4.5,
-          reviewCount: 16,
-          images: [
-            "https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=600&auto=format&fit=crop&q=80",
-          ],
-        },
-      ],
-      allDishes: [
-        { _id: "d1", title: "Rouladen", price: 18.50, sdRating: 4.5, userRating: 4.5, images: ["https://images.unsplash.com/photo-1544025162-d76694265947?w=400&auto=format&fit=crop&q=80"], description: "Klassische Rinderroulade" },
-        { _id: "d2", title: "Currywurst", price: 9.90, sdRating: 4.5, userRating: 4.5, images: ["https://images.unsplash.com/photo-1599921841143-819065a55cc6?w=400&auto=format&fit=crop&q=80"], description: "Berliner Currywurst mit Pommes" },
-        { _id: "d3", title: "Rouladen", price: 18.50, sdRating: 4.5, userRating: 4.5, images: ["https://images.unsplash.com/photo-1544025162-d76694265947?w=400&auto=format&fit=crop&q=80"], description: "Klassische Rinderroulade" },
-        { _id: "d4", title: "Currywurst", price: 9.90, sdRating: 4.5, userRating: 4.5, images: ["https://images.unsplash.com/photo-1599921841143-819065a55cc6?w=400&auto=format&fit=crop&q=80"], description: "Berliner Currywurst mit Pommes" },
-        { _id: "d5", title: "Rouladen", price: 18.50, sdRating: 4.5, userRating: 4.5, images: ["https://images.unsplash.com/photo-1544025162-d76694265947?w=400&auto=format&fit=crop&q=80"], description: "Klassische Rinderroulade" },
-        { _id: "d6", title: "Currywurst", price: 9.90, sdRating: 4.5, userRating: 4.5, images: ["https://images.unsplash.com/photo-1599921841143-819065a55cc6?w=400&auto=format&fit=crop&q=80"], description: "Berliner Currywurst mit Pommes" },
-      ],
-    };
+    return mapRestaurant(response.data.deal);
   },
-
-  toggleStatus: async (id: string) => {
-    const response = await api.patch(`/deals/${id}/status`);
-    return response.data;
-  },
+  toggleStatus: async (id: string) =>
+    (await api.patch(`/deals/${id}/status`)).data,
+  bulkDeleteRestaurants: async (ids: string[]): Promise<BulkDeleteResponse> =>
+    (await api.delete("/deals/bulk", { data: { ids } })).data,
 };
 
 export const reviewApi = {
-  getAllReviews: async (params?: { page?: number; limit?: number }): Promise<{ data: ReviewItem[]; meta: MetaPagination }> => {
+  getAllReviews: async (params?: {
+    page?: number;
+    limit?: number;
+    userId?: string;
+    dealId?: string;
+  }): Promise<{ data: ReviewItem[]; meta: MetaPagination }> => {
     const response = await api.get("/reviews", { params });
-    const rawReviews = response.data?.data || [];
-    const meta = response.data?.meta || {
-      currentPage: params?.page || 1,
-      totalPages: Math.ceil(rawReviews.length / (params?.limit || 10)) || 1,
-      totalItems: rawReviews.length,
-      itemsPerPage: params?.limit || 10,
-    };
-
-    const mappedReviews: ReviewItem[] = rawReviews.map((r: any) => ({
-      _id: r._id,
-      userID: {
-        _id: r.userID?._id || "u1",
-        name: r.userID?.name || "Gast",
-        email: r.userID?.email || "guest@gmail.com",
-        avatar: r.userID?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80",
-      },
-      dealID: r.dealID,
-      restaurantName: r.dealID?.title || "Restaurant JAN",
-      restaurantLocation: r.dealID?.location?.city ? `${r.dealID.location.city}, ${r.dealID.location.country}` : "München, Deutschland",
-      restaurantAvatar: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=150&auto=format&fit=crop&q=80",
-      dishName: r.dealID?.title ? r.dealID.title.split("-")[1]?.trim() || r.dealID.title : "Rouladen",
-      dishImage: r.dealID?.images?.[0] || "https://images.unsplash.com/photo-1544025162-d76694265947?w=400&auto=format&fit=crop&q=80",
-      mealCategory: "Spezialität",
-      guestCount: 4,
-      reviewDate: "4. Juni 2026",
-      reviewTime: "21:30 Uhr",
-      timeAgo: "vor wenigen Minuten",
-      reviewComment: r.reviewComment,
-      ratings: r.ratings || 5,
-      createdAt: r.createdAt,
-    }));
-
+    const reviews: RawReview[] = response.data?.data ?? [];
     return {
-      data: mappedReviews,
-      meta,
+      data: reviews.map(mapReview),
+      meta: response.data?.meta ?? emptyMeta(params, reviews.length),
     };
   },
-
-  getReviewsByDeal: async (dealId: string) => {
-    const response = await api.get(`/reviews/deal/${dealId}`);
-    return response.data?.reviews || [];
-  },
-
-  deleteReview: async (id: string) => {
-    const response = await api.delete(`/reviews/${id}`);
-    return response.data;
-  },
+  getReviewsByDeal: async (dealId: string) =>
+    reviewApi.getAllReviews({ dealId }),
+  bulkDeleteReviews: async (ids: string[]): Promise<BulkDeleteResponse> =>
+    (await api.delete("/reviews/bulk", { data: { ids } })).data,
 };
 
 export const statsApi = {
   getDashboardStats: async (): Promise<DashboardStats> => {
-    const [statsRes, dealsRes, revBookingRes] = await Promise.all([
-      api.get("/dashboard/stats"),
-      api.get("/deals?showAll=true"),
-      api.get("/revenue-booking"),
-    ]);
-
-    const statsData = statsRes.data?.data || {};
-    const totalCustomers = statsData.totalCustomers || 14;
-    const totalDeals = statsData.totalDeals || 6;
-    const totalRevenue = statsData.totalRevenue || 0;
-    const totalBookings = statsData.totalBookings || 0;
-
-    const allDeals = dealsRes.data?.deals || [];
-    const activeDealsCount = allDeals.filter((d: any) => d.status === "activate").length;
-    const activePercent = totalDeals > 0 ? Math.round((activeDealsCount / totalDeals) * 100) : 78;
-
-    const monthlyRevenueBooking = revBookingRes.data || [];
-    const userGrowthData = monthlyRevenueBooking.map((item: any) => ({
-      month: item.month,
-      users: item.booking * 500 + 4000,
-    }));
-
+    const response = await api.get("/dashboard/stats");
+    const stats = response.data?.data ?? {};
+    const totalRestaurants = stats.totalDeals ?? 0;
+    const activeRestaurants = stats.activeDeals ?? 0;
     return {
-      totalUsers: totalCustomers,
-      totalRestaurants: totalDeals,
-      totalReviews: 534,
-      activeRestaurantsPercent: activePercent || 78,
-      userGrowthData: userGrowthData.length > 0 ? userGrowthData : [
-        { month: "Jan", users: 5000 },
-        { month: "Feb", users: 8000 },
-        { month: "Bes", users: 12000 },
-        { month: "Apr", users: 15000 },
-        { month: "Mai", users: 18000 },
-        { month: "Juni", users: 17000 },
-        { month: "Jul", users: 19000 },
-        { month: "Aug", users: 22000 },
-        { month: "Sep", users: 26000 },
-        { month: "Okt", users: 30000 },
-        { month: "Nov", users: 32000 },
-        { month: "Dez", users: 30000 },
-      ],
-      restaurantWeeklyData: [
-        { day: "Sonne", active: 25000, total: 20000 },
-        { day: "Mein", active: 10000, total: 8000 },
-        { day: "Di.", active: 27000, total: 22000 },
-        { day: "Heiraten", active: 18000, total: 17000 },
-        { day: "Sammeln", active: 16000, total: 14000 },
-        { day: "Freitag", active: 10000, total: 9000 },
-        { day: "Sa", active: 30000, total: 25000 },
-      ],
+      totalUsers: stats.totalCustomers ?? 0,
+      totalRestaurants,
+      totalReviews: stats.totalReviews ?? 0,
+      activeRestaurantsPercent:
+        totalRestaurants > 0
+          ? Math.round((activeRestaurants / totalRestaurants) * 100)
+          : 0,
+      userGrowthData: stats.userGrowthData ?? [],
+      restaurantWeeklyData: stats.restaurantWeeklyData ?? [],
     };
   },
 };

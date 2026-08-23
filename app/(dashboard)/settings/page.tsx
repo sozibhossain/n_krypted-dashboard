@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import Image from "next/image";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ChevronRight,
-  ChevronDown,
   Edit2,
   Eye,
   EyeOff,
@@ -14,20 +13,15 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { toast } from "sonner";
-import { authApi } from "@/lib/api";
+import { authApi, getApiErrorMessage, UserItem } from "@/lib/api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export default function SettingsPage() {
   const queryClient = useQueryClient();
-  const { user, isLoading: userLoading, update, session } = useCurrentUser();
+  const { user, update, session } = useCurrentUser();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   // Accordion open states
   const [isContactOpen, setIsContactOpen] = useState(true);
@@ -35,9 +29,9 @@ export default function SettingsPage() {
 
   // Edit mode for contact info
   const [isContactEditing, setIsContactEditing] = useState(false);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState<string | null>(null);
+  const [lastName, setLastName] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
 
   // Avatar state
   const [avatarUrl, setAvatarUrl] = useState<string>("");
@@ -55,20 +49,11 @@ export default function SettingsPage() {
   const [isSavingContact, setIsSavingContact] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
 
-  // Sync state from live user profile
-  useEffect(() => {
-    if (user) {
-      const nameParts = (user.name || "").trim().split(" ");
-      setFirstName(nameParts[0] || "");
-      setLastName(nameParts.slice(1).join(" ") || "");
-      setEmail(user.email || "");
-
-      const currentImg = user.avatar || (user as any).image;
-      if (currentImg) {
-        setAvatarUrl(currentImg);
-      }
-    }
-  }, [user]);
+  const profileNameParts = (user?.name ?? "").trim().split(/\s+/);
+  const resolvedFirstName = firstName ?? profileNameParts[0] ?? "";
+  const resolvedLastName = lastName ?? profileNameParts.slice(1).join(" ");
+  const resolvedEmail = email ?? user?.email ?? "";
+  const displayedAvatar = avatarUrl || user?.avatar || user?.image || "";
 
   const handleAvatarClick = () => {
     if (fileInputRef.current && !isUploadingAvatar) {
@@ -91,7 +76,11 @@ export default function SettingsPage() {
 
     try {
       setIsUploadingAvatar(true);
-      const activeUserId = user?._id || "6a852dd213d863acd80c9b08";
+      const activeUserId = user?._id;
+      if (!activeUserId) {
+        toast.error("Das Benutzerprofil ist nicht verf\u00fcgbar.");
+        return;
+      }
 
       const formData = new FormData();
       formData.append("avatar", file);
@@ -102,13 +91,15 @@ export default function SettingsPage() {
       const uploadedAvatar =
         response?.data?.avatar ||
         response?.avatar ||
-        response?.data?.data?.avatar ||
-        previewUrl;
+        response?.data?.data?.avatar;
+      if (!uploadedAvatar) {
+        throw new Error("Die API hat keine Profilbild-URL zur\u00fcckgegeben.");
+      }
 
       setAvatarUrl(uploadedAvatar);
 
       // Update TanStack query cache directly for instantaneous sync across all components
-      queryClient.setQueryData(["current-user-profile", activeUserId], (old: any) => ({
+      queryClient.setQueryData(["current-user-profile", activeUserId], (old: UserItem | undefined) => ({
         ...old,
         avatar: uploadedAvatar,
         image: uploadedAvatar,
@@ -141,9 +132,8 @@ export default function SettingsPage() {
 
       queryClient.invalidateQueries({ queryKey: ["current-user-profile"] });
       toast.success("Profilbild erfolgreich hochgeladen und aktualisiert!");
-    } catch (err: any) {
-      console.error("Avatar upload error:", err);
-      toast.error("Fehler beim Hochladen des Bildes.");
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "Fehler beim Hochladen des Bildes."));
     } finally {
       setIsUploadingAvatar(false);
       if (fileInputRef.current) {
@@ -157,15 +147,19 @@ export default function SettingsPage() {
 
     try {
       setIsSavingContact(true);
-      const fullName = `${firstName} ${lastName}`.trim();
-      const activeUserId = user?._id || "6a852dd213d863acd80c9b08";
+      const fullName = `${resolvedFirstName} ${resolvedLastName}`.trim();
+      const activeUserId = user?._id;
+      if (!activeUserId) {
+        toast.error("Das Benutzerprofil ist nicht verf\u00fcgbar.");
+        return;
+      }
 
       await authApi.updateProfileJson({
         userId: activeUserId,
         name: fullName,
       });
 
-      queryClient.setQueryData(["current-user-profile", activeUserId], (old: any) => ({
+      queryClient.setQueryData(["current-user-profile", activeUserId], (old: UserItem | undefined) => ({
         ...old,
         name: fullName,
       }));
@@ -193,9 +187,13 @@ export default function SettingsPage() {
       queryClient.invalidateQueries({ queryKey: ["current-user-profile"] });
       toast.success("Kontaktinformationen erfolgreich aktualisiert!");
       setIsContactEditing(false);
-    } catch (err: any) {
-      toast.success("Kontaktinformationen aktualisiert.");
-      setIsContactEditing(false);
+    } catch (err: unknown) {
+      toast.error(
+        getApiErrorMessage(
+          err,
+          "Kontaktinformationen konnten nicht aktualisiert werden."
+        )
+      );
     } finally {
       setIsSavingContact(false);
     }
@@ -221,7 +219,11 @@ export default function SettingsPage() {
 
     try {
       setIsSavingPassword(true);
-      const activeUserId = user?._id || "6a852dd213d863acd80c9b08";
+      const activeUserId = user?._id;
+      if (!activeUserId) {
+        toast.error("Das Benutzerprofil ist nicht verf\u00fcgbar.");
+        return;
+      }
 
       await authApi.changePassword({
         userId: activeUserId,
@@ -234,20 +236,18 @@ export default function SettingsPage() {
       setNewPassword("");
       setConfirmPassword("");
       setIsPasswordOpen(false);
-    } catch (err: any) {
-      const errMsg = err.response?.data?.message || "Passwort erfolgreich geändert!";
-      toast.success(errMsg);
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      setIsPasswordOpen(false);
+    } catch (err: unknown) {
+      toast.error(
+        getApiErrorMessage(err, "Das Passwort konnte nicht geändert werden.")
+      );
     } finally {
       setIsSavingPassword(false);
     }
   };
 
-  const userName = user?.name || `${firstName} ${lastName}`.trim() || "Sozib Hossain";
-  const userRole = user?.role === "admin" ? "Administrator" : user?.role || "Administrator";
+  const userName =
+    user?.name || `${resolvedFirstName} ${resolvedLastName}`.trim() || "—";
+  const userRole = user?.role === "admin" ? "Administrator" : user?.role || "—";
 
   return (
     <div className="bg-white rounded-3xl border border-[#F0ECE1] p-6 sm:p-8 shadow-xs space-y-6">
@@ -268,15 +268,15 @@ export default function SettingsPage() {
           className="group relative w-16 h-16 rounded-full overflow-hidden border-2 border-[#E2E8F0] hover:border-[#0097A7] shrink-0 cursor-pointer shadow-xs transition-all duration-200 flex items-center justify-center bg-gray-100"
           title="Klicken zum Ändern des Profilbildes"
         >
-          {mounted && avatarUrl ? (
+          {displayedAvatar ? (
             <Image
-              src={avatarUrl}
+              src={displayedAvatar}
               alt={userName}
               fill
               className="object-cover transition-transform duration-300 group-hover:scale-110"
               sizes="64px"
               priority
-              unoptimized={avatarUrl.startsWith("blob:")}
+              unoptimized={displayedAvatar.startsWith("blob:")}
             />
           ) : (
             <div className="w-full h-full bg-gray-100 flex items-center justify-center">
@@ -366,7 +366,7 @@ export default function SettingsPage() {
                 <Input
                   type="text"
                   placeholder="Erste"
-                  value={firstName}
+                  value={resolvedFirstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   disabled={!isContactEditing || isSavingContact}
                   className="h-11 text-xs border-[#90CAF9] focus-visible:ring-[#0097A7]"
@@ -377,7 +377,7 @@ export default function SettingsPage() {
                 <Input
                   type="text"
                   placeholder="Nachname"
-                  value={lastName}
+                  value={resolvedLastName}
                   onChange={(e) => setLastName(e.target.value)}
                   disabled={!isContactEditing || isSavingContact}
                   className="h-11 text-xs border-[#90CAF9] focus-visible:ring-[#0097A7]"
@@ -388,7 +388,7 @@ export default function SettingsPage() {
                 <Input
                   type="email"
                   placeholder="E-Mail"
-                  value={email}
+                  value={resolvedEmail}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={!isContactEditing || isSavingContact}
                   className="h-11 text-xs border-[#90CAF9] focus-visible:ring-[#0097A7]"

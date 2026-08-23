@@ -7,7 +7,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { authApi } from "@/lib/api";
+import { authApi, getApiErrorMessage } from "@/lib/api";
 
 export default function ForgotPasswordPage() {
   const router = useRouter();
@@ -27,8 +27,8 @@ export default function ForgotPasswordPage() {
       await authApi.forgotPassword({ email });
       toast.success("Verifizierungscode (OTP) wurde gesendet!");
       router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || "Fehler beim Senden des Codes.");
+    } catch (err: unknown) {
+      toast.error(getApiErrorMessage(err, "Fehler beim Senden des Codes."));
     } finally {
       setIsLoading(false);
     }

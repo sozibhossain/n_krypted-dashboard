@@ -7,7 +7,7 @@ import { Eye, EyeOff, ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { authApi } from "@/lib/api";
+import { authApi, getApiErrorMessage } from "@/lib/api";
 
 function ResetPasswordContent() {
   const router = useRouter();
@@ -48,9 +48,10 @@ function ResetPasswordContent() {
       });
       toast.success("Passwort erfolgreich geändert! Sie können sich jetzt anmelden.");
       router.push("/signin");
-    } catch (err: any) {
-      toast.success("Passwort aktualisiert.");
-      router.push("/signin");
+    } catch (err: unknown) {
+      toast.error(
+        getApiErrorMessage(err, "Das Passwort konnte nicht aktualisiert werden.")
+      );
     } finally {
       setIsLoading(false);
     }

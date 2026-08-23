@@ -1,79 +1,72 @@
 "use client";
 
 import Image from "next/image";
-import {
-  MapPin,
-  Calendar,
-  Clock,
-  Utensils,
-  Users,
-  Star,
-  MoreVertical,
-} from "lucide-react";
+import { Calendar, Clock, MapPin, Star, User, Utensils } from "lucide-react";
 import { ReviewItem } from "@/lib/api";
+import { formatDate, formatTime } from "@/lib/utils";
 
 interface ReviewCardProps {
   review: ReviewItem;
 }
 
 export function ReviewCard({ review }: ReviewCardProps) {
-  const rating = review.ratings || 4;
+  const rating = review.ratings ?? 0;
 
   return (
-    <div className="bg-white rounded-2xl border border-[#F0ECE1] p-5 shadow-xs transition-shadow hover:shadow-sm">
-      {/* Restaurant Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-[#F7F5EC]">
-        <div className="flex items-center gap-3">
-          <div className="relative w-8 h-8 rounded-full overflow-hidden bg-black shrink-0">
+    <div className="rounded-2xl border border-[#F0ECE1] bg-white p-5 shadow-xs transition-shadow hover:shadow-sm">
+      <div className="flex items-center gap-3 border-b border-[#F7F5EC] pb-3">
+        <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100">
+          {review.restaurantAvatar ? (
             <Image
-              src={review.restaurantAvatar || "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100&auto=format&fit=crop&q=80"}
-              alt={review.restaurantName || "Restaurant"}
+              src={review.restaurantAvatar}
+              alt={review.restaurantName ?? "Restaurant"}
               fill
               className="object-cover"
               sizes="32px"
             />
-          </div>
-          <div>
-            <h4 className="text-sm font-bold text-[#1E1E1E] leading-tight">
-              {review.restaurantName || "Restaurant JAN"}
-            </h4>
-            <div className="flex items-center gap-1 text-[11px] text-[#718096]">
-              <MapPin className="w-3 h-3 text-red-500 shrink-0" />
-              <span>{review.restaurantLocation || "München, Deutschland"}</span>
-            </div>
-          </div>
+          ) : (
+            <Utensils className="h-4 w-4 text-gray-400" />
+          )}
         </div>
-
-        <button className="p-1 text-gray-400 hover:text-gray-600 rounded-md" aria-label="Optionen">
-          <MoreVertical className="w-4 h-4" />
-        </button>
+        <div>
+          <h4 className="text-sm font-bold leading-tight text-[#1E1E1E]">
+            {review.restaurantName ?? "Eintrag nicht verf\u00fcgbar"}
+          </h4>
+          {review.restaurantLocation && (
+            <div className="flex items-center gap-1 text-[11px] text-[#718096]">
+              <MapPin className="h-3 w-3 shrink-0 text-red-500" />
+              <span>{review.restaurantLocation}</span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Review Content & Thumbnail */}
-      <div className="flex flex-col lg:flex-row gap-5 pt-4">
-        {/* Reviewer info and comment */}
+      <div className="flex flex-col gap-5 pt-4 lg:flex-row">
         <div className="flex-1 space-y-3">
-          {/* User profile & rating */}
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="relative w-9 h-9 rounded-full overflow-hidden bg-gray-200 shrink-0">
-                <Image
-                  src={review.userID?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"}
-                  alt={review.userID?.name || "User"}
-                  fill
-                  className="object-cover"
-                  sizes="36px"
-                />
+              <div className="relative flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200">
+                {review.userID?.avatar ? (
+                  <Image
+                    src={review.userID.avatar}
+                    alt={review.userID.name}
+                    fill
+                    className="object-cover"
+                    sizes="36px"
+                  />
+                ) : (
+                  <User className="h-4 w-4 text-gray-500" />
+                )}
               </div>
               <div>
                 <div className="text-sm font-semibold text-[#1E1E1E]">
-                  {review.userID?.name || "Niti Kapoor"}
+                  {review.userID?.name ?? "Benutzer nicht verf\u00fcgbar"}
                 </div>
-                <div className="flex items-center gap-0.5 mt-0.5">
+                <div className="mt-0.5 flex items-center gap-0.5">
                   {[1, 2, 3, 4, 5].map((star) => (
                     <Star
                       key={star}
-                      className={`w-3.5 h-3.5 ${
+                      className={`h-3.5 w-3.5 ${
                         star <= rating
                           ? "fill-[#F59E0B] text-[#F59E0B]"
                           : "fill-gray-200 text-gray-200"
@@ -83,53 +76,45 @@ export function ReviewCard({ review }: ReviewCardProps) {
                 </div>
               </div>
             </div>
-
-            <span className="text-xs text-[#718096]">
-              {review.timeAgo || "vor 7 Minuten"}
-            </span>
           </div>
 
-          {/* Meta badges: Date, Time, Food, Guests */}
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-[#718096] pt-1">
-            <div className="flex items-center gap-1.5 text-[#0097A7]">
-              <Calendar className="w-3.5 h-3.5 text-[#0097A7]" />
-              <span>{review.reviewDate || "4, Juni 2026"}</span>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 text-xs text-[#0097A7]">
+            <div className="flex items-center gap-1.5">
+              <Calendar className="h-3.5 w-3.5" />
+              <span>{formatDate(review.createdAt)}</span>
             </div>
-            <div className="flex items-center gap-1.5 text-[#0097A7]">
-              <Clock className="w-3.5 h-3.5 text-[#0097A7]" />
-              <span>{review.reviewTime || "21:30 Uhr"}</span>
+            <div className="flex items-center gap-1.5">
+              <Clock className="h-3.5 w-3.5" />
+              <span>{formatTime(review.createdAt)}</span>
             </div>
-            <div className="flex items-center gap-1.5 text-[#0097A7]">
-              <Utensils className="w-3.5 h-3.5 text-[#0097A7]" />
-              <span>{review.mealCategory || "Schnitzel"}</span>
-            </div>
-            <div className="flex items-center gap-1.5 text-[#0097A7]">
-              <Users className="w-3.5 h-3.5 text-[#0097A7]" />
-              <span>{review.guestCount || 4} Personen</span>
-            </div>
+            {review.mealCategory && (
+              <div className="flex items-center gap-1.5">
+                <Utensils className="h-3.5 w-3.5" />
+                <span>{review.mealCategory}</span>
+              </div>
+            )}
           </div>
 
-          {/* Review text */}
-          <p className="text-xs sm:text-sm text-[#4A5568] leading-relaxed pt-1">
+          <p className="pt-1 text-xs leading-relaxed text-[#4A5568] sm:text-sm">
             {review.reviewComment}
           </p>
         </div>
 
-        {/* Dish Thumbnail on right */}
         {review.dishImage && (
-          <div className="relative w-full lg:w-44 h-32 rounded-xl overflow-hidden shrink-0 shadow-xs group">
+          <div className="group relative h-32 w-full shrink-0 overflow-hidden rounded-xl shadow-xs lg:w-44">
             <Image
               src={review.dishImage}
-              alt={review.dishName || "Dish"}
+              alt={review.dishName ?? "Gericht"}
               fill
-              className="object-cover group-hover:scale-105 transition-transform duration-300"
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
               sizes="180px"
             />
-            {/* Dish Tag overlay */}
-            <div className="absolute bottom-2 left-2 bg-black/60 backdrop-blur-xs text-white text-[11px] font-medium px-2 py-0.5 rounded-md flex items-center gap-1">
-              <Utensils className="w-3 h-3 text-white" />
-              <span>{review.dishName || "Rouladen"}</span>
-            </div>
+            {review.dishName && (
+              <div className="absolute bottom-2 left-2 flex items-center gap-1 rounded-md bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur-xs">
+                <Utensils className="h-3 w-3" />
+                <span>{review.dishName}</span>
+              </div>
+            )}
           </div>
         )}
       </div>

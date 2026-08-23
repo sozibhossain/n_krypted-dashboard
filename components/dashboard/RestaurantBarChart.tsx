@@ -14,17 +14,7 @@ interface RestaurantBarChartProps {
   data?: { day: string; active: number; total: number }[];
 }
 
-const defaultData = [
-  { day: "Sonne", active: 25000, total: 19000 },
-  { day: "Mein", active: 10000, total: 8000 },
-  { day: "Di.", active: 27000, total: 22000 },
-  { day: "Heiraten", active: 18000, total: 16500 },
-  { day: "Sammeln", active: 16000, total: 14000 },
-  { day: "Freitag", active: 10000, total: 8500 },
-  { day: "Sa", active: 30000, total: 24000 },
-];
-
-export function RestaurantBarChart({ data = defaultData }: RestaurantBarChartProps) {
+export function RestaurantBarChart({ data = [] }: RestaurantBarChartProps) {
   return (
     <div className="bg-white rounded-2xl border border-[#F0ECE1] p-6 shadow-xs flex flex-col justify-between h-full">
       <div className="mb-4">
@@ -37,6 +27,11 @@ export function RestaurantBarChart({ data = defaultData }: RestaurantBarChartPro
       </div>
 
       <div className="w-full h-64 mt-2">
+        {data.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-sm text-[#718096]">
+            Keine Restaurantdaten verfügbar.
+          </div>
+        ) : (
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={data}
@@ -59,8 +54,7 @@ export function RestaurantBarChart({ data = defaultData }: RestaurantBarChartPro
                 if (val >= 1000) return `${val / 1000}k`;
                 return `${val}`;
               }}
-              domain={[0, 30000]}
-              ticks={[5000, 10000, 15000, 20000, 25000, 30000]}
+              allowDecimals={false}
             />
             <Tooltip
               content={({ active, payload }) => {
@@ -87,6 +81,7 @@ export function RestaurantBarChart({ data = defaultData }: RestaurantBarChartPro
             <Bar dataKey="total" fill="#B2EBF2" radius={[4, 4, 0, 0]} maxBarSize={14} />
           </BarChart>
         </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

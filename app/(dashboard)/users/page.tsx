@@ -3,10 +3,10 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Eye, Ban, Search, UserCheck } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Eye, Search, Trash2, User } from "lucide-react";
 import { toast } from "sonner";
-import { userApi, UserItem } from "@/lib/api";
+import { getApiErrorMessage, userApi } from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,6 +16,7 @@ export default function UserManagementPage() {
   const queryClient = useQueryClient();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   const { data, isLoading } = useQuery({
     queryKey: ["users", currentPage, searchQuery],
@@ -26,23 +27,54 @@ export default function UserManagementPage() {
         search: searchQuery,
       }),
   });
+  const selectableIds =
+    data?.data.filter((user) => user.role !== "admin").map((user) => user._id) ?? [];
+  const allSelected =
+    selectableIds.length > 0 && selectableIds.every((id) => selectedIds.has(id));
 
-  // Block/Delete mutation
-  const blockMutation = useMutation({
-    mutationFn: async (userId: string) => {
-      return await userApi.deleteUser(userId);
-    },
-    onSuccess: () => {
-      toast.success("Benutzerstatus erfolgreich aktualisiert!");
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids: string[]) => userApi.bulkDeleteUsers(ids),
+    onSuccess: (result) => {
+      setSelectedIds(new Set());
+      setCurrentPage(1);
+      toast.success(`${result.deletedCount} Benutzer wurden gel\u00f6scht.`);
       queryClient.invalidateQueries({ queryKey: ["users"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
     },
-    onError: () => {
-      toast.info("Benutzerstatus aktualisiert (Demo Mode)");
-    },
+    onError: (error: unknown) =>
+      toast.error(
+        getApiErrorMessage(error, "Die Benutzer konnten nicht gel\u00f6scht werden.")
+      ),
   });
 
-  const handleToggleBlock = (user: UserItem) => {
-    blockMutation.mutate(user._id);
+  const toggleSelected = (id: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleCurrentPage = () => {
+    setSelectedIds((current) => {
+      const next = new Set(current);
+      if (allSelected) selectableIds.forEach((id) => next.delete(id));
+      else selectableIds.forEach((id) => next.add(id));
+      return next;
+    });
+  };
+
+  const handleBulkDelete = () => {
+    const ids = [...selectedIds];
+    if (
+      ids.length > 0 &&
+      window.confirm(
+        `${ids.length} ausgew\u00e4hlte Benutzer dauerhaft l\u00f6schen? Diese Aktion kann nicht r\u00fcckg\u00e4ngig gemacht werden.`
+      )
+    ) {
+      bulkDeleteMutation.mutate(ids);
+    }
   };
 
   return (
@@ -56,6 +88,20 @@ export default function UserManagementPage() {
           </p>
         </div>
 
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          {selectedIds.size > 0 && (
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              disabled={bulkDeleteMutation.isPending}
+              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 text-xs font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              {bulkDeleteMutation.isPending
+                ? "Wird gel\u00f6scht..."
+                : `${selectedIds.size} l\u00f6schen`}
+            </button>
+          )}
         {/* Search bar */}
         <div className="relative w-full sm:w-64">
           <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -66,9 +112,11 @@ export default function UserManagementPage() {
             onChange={(e) => {
               setSearchQuery(e.target.value);
               setCurrentPage(1);
+              setSelectedIds(new Set());
             }}
             className="pl-9 h-10 text-xs border-[#E2E8F0] rounded-xl focus-visible:ring-[#0097A7]"
           />
+        </div>
         </div>
       </div>
 
@@ -77,6 +125,16 @@ export default function UserManagementPage() {
         <table className="w-full text-left border-collapse">
           <thead>
             <tr className="bg-[#FFFBE9] border-b border-[#F0ECE1] text-xs font-semibold text-[#1E1E1E]">
+              <th className="py-4 pl-5 pr-2">
+                <input
+                  type="checkbox"
+                  checked={allSelected}
+                  onChange={toggleCurrentPage}
+                  disabled={selectableIds.length === 0}
+                  aria-label="Alle Benutzer auf dieser Seite ausw\u00e4hlen"
+                  className="h-4 w-4 accent-[#0097A7]"
+                />
+              </th>
               <th className="py-4 px-5">Benutzername</th>
               <th className="py-4 px-5">E-Mail</th>
               <th className="py-4 px-5">Einchecken</th>
@@ -89,6 +147,9 @@ export default function UserManagementPage() {
             {isLoading ? (
               Array.from({ length: 8 }).map((_, i) => (
                 <tr key={`skeleton-${i}`}>
+                  <td className="py-3.5 pl-5 pr-2">
+                    <Skeleton className="h-4 w-4" />
+                  </td>
                   <td className="py-3.5 px-5">
                     <div className="flex items-center gap-3">
                       <Skeleton className="w-8 h-8 rounded-full" />
@@ -117,7 +178,7 @@ export default function UserManagementPage() {
               ))
             ) : data?.data?.length === 0 ? (
               <tr>
-                <td colSpan={6} className="py-12 text-center text-gray-500">
+                <td colSpan={7} className="py-12 text-center text-gray-500">
                   Keine Benutzer gefunden.
                 </td>
               </tr>
@@ -127,20 +188,36 @@ export default function UserManagementPage() {
                   key={user._id}
                   className="hover:bg-[#FFFDF5] transition-colors"
                 >
+                  <td className="py-3.5 pl-5 pr-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.has(user._id)}
+                      onChange={() => toggleSelected(user._id)}
+                      disabled={user.role === "admin"}
+                      aria-label={`${user.name} ausw\u00e4hlen`}
+                      title={
+                        user.role === "admin"
+                          ? "Administratorkonten sind gesch\u00fctzt"
+                          : undefined
+                      }
+                      className="h-4 w-4 accent-[#0097A7] disabled:cursor-not-allowed disabled:opacity-40"
+                    />
+                  </td>
                   {/* Name + Avatar */}
                   <td className="py-3.5 px-5 font-medium text-[#1E1E1E]">
                     <div className="flex items-center gap-3">
-                      <div className="relative w-8 h-8 rounded-full overflow-hidden bg-gray-200 shrink-0">
-                        <Image
-                          src={
-                            user.avatar ||
-                            "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80"
-                          }
-                          alt={user.name}
-                          fill
-                          className="object-cover"
-                          sizes="32px"
-                        />
+                      <div className="relative flex w-8 h-8 items-center justify-center rounded-full overflow-hidden bg-gray-200 shrink-0">
+                        {user.avatar ? (
+                          <Image
+                            src={user.avatar}
+                            alt={user.name}
+                            fill
+                            className="object-cover"
+                            sizes="32px"
+                          />
+                        ) : (
+                          <User className="h-4 w-4 text-gray-500" />
+                        )}
                       </div>
                       <span>{user.name}</span>
                     </div>
@@ -151,12 +228,12 @@ export default function UserManagementPage() {
 
                   {/* Einchecken count */}
                   <td className="py-3.5 px-5 text-[#1E1E1E] font-medium">
-                    {user.checkInCount || 6}
+                    {user.checkInCount}
                   </td>
 
                   {/* Rezension count */}
                   <td className="py-3.5 px-5 text-[#1E1E1E] font-medium">
-                    {user.reviewCount || 4}
+                    {user.reviewCount}
                   </td>
 
                   {/* Status Badge */}
@@ -164,7 +241,7 @@ export default function UserManagementPage() {
                     <Badge
                       variant={user.status === "Inaktiv" ? "inactive" : "active"}
                     >
-                      {user.status || "Aktiv"}
+                      {user.status}
                     </Badge>
                   </td>
 
@@ -178,13 +255,6 @@ export default function UserManagementPage() {
                       >
                         <Eye className="w-4 h-4" />
                       </Link>
-                      <button
-                        onClick={() => handleToggleBlock(user)}
-                        className="text-[#EF4444] hover:text-red-700 p-1 rounded-md transition-colors cursor-pointer"
-                        title="Benutzer sperren / entsperren"
-                      >
-                        <Ban className="w-4 h-4" />
-                      </button>
                     </div>
                   </td>
                 </tr>
@@ -201,7 +271,10 @@ export default function UserManagementPage() {
           totalPages={data.meta.totalPages}
           totalItems={data.meta.totalItems}
           itemsPerPage={data.meta.itemsPerPage}
-          onPageChange={(page) => setCurrentPage(page)}
+          onPageChange={(page) => {
+            setCurrentPage(page);
+            setSelectedIds(new Set());
+          }}
           className="mt-2"
         />
       )}

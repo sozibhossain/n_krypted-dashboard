@@ -14,22 +14,7 @@ interface UserGrowthChartProps {
   data?: { month: string; users: number }[];
 }
 
-const defaultData = [
-  { month: "Jan", users: 4000 },
-  { month: "Feb", users: 7500 },
-  { month: "Bes", users: 12000 },
-  { month: "Apr", users: 16000 },
-  { month: "Mai", users: 15500 },
-  { month: "Juni", users: 16500 },
-  { month: "Jul", users: 18500 },
-  { month: "Aug", users: 22000 },
-  { month: "Sep", users: 27000 },
-  { month: "Okt", users: 29500 },
-  { month: "Nov", users: 28500 },
-  { month: "Dez", users: 27000 },
-];
-
-export function UserGrowthChart({ data = defaultData }: UserGrowthChartProps) {
+export function UserGrowthChart({ data = [] }: UserGrowthChartProps) {
   return (
     <div className="bg-white rounded-2xl border border-[#F0ECE1] p-6 shadow-xs flex flex-col justify-between h-full">
       <div className="mb-4">
@@ -42,6 +27,11 @@ export function UserGrowthChart({ data = defaultData }: UserGrowthChartProps) {
       </div>
 
       <div className="w-full h-64 mt-2">
+        {data.length === 0 ? (
+          <div className="flex h-full items-center justify-center text-sm text-[#718096]">
+            Keine Nutzerdaten verfügbar.
+          </div>
+        ) : (
         <ResponsiveContainer width="100%" height="100%">
           <AreaChart
             data={data}
@@ -66,8 +56,7 @@ export function UserGrowthChart({ data = defaultData }: UserGrowthChartProps) {
               axisLine={false}
               tick={{ fontSize: 11, fill: "#718096" }}
               tickFormatter={(val) => `${val.toLocaleString("de-DE")}`}
-              domain={[0, 35000]}
-              ticks={[5000, 10000, 15000, 20000, 25000, 30000, 35000]}
+              allowDecimals={false}
             />
             <Tooltip
               content={({ active, payload }) => {
@@ -93,6 +82,7 @@ export function UserGrowthChart({ data = defaultData }: UserGrowthChartProps) {
             />
           </AreaChart>
         </ResponsiveContainer>
+        )}
       </div>
     </div>
   );

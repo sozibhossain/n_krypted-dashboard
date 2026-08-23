@@ -9,21 +9,19 @@ export function useCurrentUser() {
 
   const userId =
     session?.user?._id ||
-    session?.user?.id ||
-    "6a852dd213d863acd80c9b08";
+    session?.user?.id;
 
   const { data: user, isLoading, refetch } = useQuery<UserItem>({
     queryKey: ["current-user-profile", userId],
     queryFn: async () => {
       if (!userId) throw new Error("No user ID");
-      const res = await authApi.getUserById(userId);
-      return res?.data || res;
+      return authApi.getUserById(userId);
     },
     enabled: !!userId,
     staleTime: 1000 * 60, // 1 minute
   });
 
-  const currentUser = user || (session?.user as any) || null;
+  const currentUser = user || (session?.user as UserItem | undefined) || null;
 
   return {
     user: currentUser,

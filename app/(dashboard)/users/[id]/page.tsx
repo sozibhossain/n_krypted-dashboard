@@ -1,24 +1,14 @@
 "use client";
 
-import { use, useState } from "react";
+import { use } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  MapPin,
-  Phone,
-  Ban,
-  ArrowLeft,
-  Calendar,
-  Utensils,
-  Clock,
-  Users,
-} from "lucide-react";
-import { toast } from "sonner";
-import { userApi, reviewApi } from "@/lib/api";
-import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, MapPin, Phone, User, Utensils } from "lucide-react";
+import { bookingApi, reviewApi, userApi } from "@/lib/api";
 import { ReviewCard } from "@/components/dashboard/ReviewCard";
+import { Skeleton } from "@/components/ui/skeleton";
+import { formatDate } from "@/lib/utils";
 
 interface UserDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -26,171 +16,157 @@ interface UserDetailsPageProps {
 
 export default function UserDetailsPage({ params }: UserDetailsPageProps) {
   const { id } = use(params);
-  const queryClient = useQueryClient();
-  const [isBlocked, setIsBlocked] = useState(false);
-
   const { data: user, isLoading: userLoading } = useQuery({
     queryKey: ["user-detail", id],
     queryFn: () => userApi.getUserById(id),
   });
-
+  const { data: checkIns = [], isLoading: checkInsLoading } = useQuery({
+    queryKey: ["user-check-ins", id],
+    queryFn: () => bookingApi.getUserCheckIns(id),
+  });
   const { data: reviewsData, isLoading: reviewsLoading } = useQuery({
     queryKey: ["user-reviews", id],
-    queryFn: () => reviewApi.getAllReviews({ limit: 4 }),
+    queryFn: () => reviewApi.getAllReviews({ userId: id, limit: 4 }),
   });
 
-  const handleBlock = () => {
-    setIsBlocked(!isBlocked);
-    toast.success(
-      isBlocked
-        ? "Benutzer erfolgreich entsperrt!"
-        : "Benutzer erfolgreich gesperrt!"
-    );
-  };
-
-  const checkIns = [
-    { id: "c1", restaurant: "Restaurant JAN", location: "München, Deutschland", date: "3. Juni 2026" },
-    { id: "c2", restaurant: "Restaurant JAN", location: "München, Deutschland", date: "3. Juni 2026" },
-    { id: "c3", restaurant: "Restaurant JAN", location: "München, Deutschland", date: "3. Juni 2026" },
-    { id: "c4", restaurant: "Restaurant JAN", location: "München, Deutschland", date: "3. Juni 2026" },
-    { id: "c5", restaurant: "Restaurant JAN", location: "München, Deutschland", date: "3. Juni 2026" },
-    { id: "c6", restaurant: "Restaurant JAN", location: "München, Deutschland", date: "3. Juni 2026" },
-    { id: "c7", restaurant: "Restaurant JAN", location: "München, Deutschland", date: "3. Juni 2026" },
-    { id: "c8", restaurant: "Restaurant JAN", location: "München, Deutschland", date: "3. Juni 2026" },
-    { id: "c9", restaurant: "Restaurant JAN", location: "München, Deutschland", date: "3. Juni 2026" },
-  ];
+  const location = [user?.cityState, user?.country].filter(Boolean).join(", ");
 
   return (
-    <div className="bg-white rounded-3xl border border-[#F0ECE1] p-6 sm:p-8 shadow-xs space-y-8">
-      {/* Back button link */}
-      <div>
-        <Link
-          href="/users"
-          className="inline-flex items-center gap-2 text-xs sm:text-sm font-semibold text-[#0097A7] hover:underline"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Zurück zur Benutzerübersicht</span>
-        </Link>
-      </div>
+    <div className="space-y-8 rounded-3xl border border-[#F0ECE1] bg-white p-6 shadow-xs sm:p-8">
+      <Link
+        href="/users"
+        className="inline-flex items-center gap-2 text-xs font-semibold text-[#0097A7] hover:underline sm:text-sm"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        <span>Zurück zur Benutzerübersicht</span>
+      </Link>
 
-      {/* User Header Profile Card */}
       {userLoading ? (
         <Skeleton className="h-28 rounded-2xl" />
-      ) : (
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-[#F5F2E8]">
+      ) : user ? (
+        <div className="flex flex-col justify-between gap-6 border-b border-[#F5F2E8] pb-6 md:flex-row md:items-center">
           <div className="flex items-center gap-4">
-            <div className="relative w-16 h-16 rounded-full overflow-hidden bg-gray-200 shrink-0">
-              <Image
-                src={
-                  user?.avatar ||
-                  "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80"
-                }
-                alt={user?.name || "Jenny Wilson"}
-                fill
-                className="object-cover"
-                sizes="64px"
-              />
+            <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-200">
+              {user.avatar ? (
+                <Image
+                  src={user.avatar}
+                  alt={user.name}
+                  fill
+                  className="object-cover"
+                  sizes="64px"
+                />
+              ) : (
+                <User className="h-7 w-7 text-gray-500" />
+              )}
             </div>
             <div>
-              <h2 className="text-xl font-bold text-[#1E1E1E]">
-                {user?.name || "Jenny Wilson"}
-              </h2>
-              <p className="text-xs text-[#718096]">
-                {user?.email || "example@gmail.com"}
-              </p>
+              <h2 className="text-xl font-bold text-[#1E1E1E]">{user.name}</h2>
+              <p className="text-xs text-[#718096]">{user.email}</p>
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8 text-xs sm:text-sm text-[#4A5568]">
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 text-red-500 shrink-0" />
-              <span>{user?.cityState || "München, Deutschland"}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Phone className="w-4 h-4 text-gray-500 shrink-0" />
-              <span>{user?.phoneNumber || "+49 151 23456789"}</span>
-            </div>
+          <div className="flex flex-col gap-4 text-xs text-[#4A5568] sm:flex-row sm:items-center sm:gap-8 sm:text-sm">
+            {location && (
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 shrink-0 text-red-500" />
+                <span>{location}</span>
+              </div>
+            )}
+            {user.phoneNumber && (
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 shrink-0 text-gray-500" />
+                <span>{user.phoneNumber}</span>
+              </div>
+            )}
           </div>
-
-          <div>
-            <Button
-              variant="destructive"
-              onClick={handleBlock}
-              className="rounded-xl flex items-center gap-2 px-6 h-11"
-            >
-              <Ban className="w-4 h-4 text-red-500" />
-              <span>{isBlocked ? "Entsperren" : "Block"}</span>
-            </Button>
-          </div>
+        </div>
+      ) : (
+        <div className="py-8 text-center text-sm text-[#718096]">
+          Benutzer nicht gefunden.
         </div>
       )}
 
-      {/* Section 1: Einchecken (Check-ins) */}
-      <div className="space-y-4">
+      <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-bold text-[#1E1E1E]">Einchecken</h3>
-          <span className="text-xs text-[#718096]">
-            7. Ergebnis des Eincheckens
-          </span>
+          <span className="text-xs text-[#718096]">{checkIns.length} Ergebnisse</span>
         </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {checkIns.map((item) => (
-            <div
-              key={item.id}
-              className="flex items-center justify-between p-4 rounded-xl border border-[#F0ECE1] bg-white hover:border-[#0097A7]/40 transition-colors shadow-2xs"
-            >
-              <div className="flex items-center gap-3">
-                <div className="relative w-8 h-8 rounded-full overflow-hidden bg-black shrink-0">
-                  <Image
-                    src="https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=100&auto=format&fit=crop&q=80"
-                    alt={item.restaurant}
-                    fill
-                    className="object-cover"
-                    sizes="32px"
-                  />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-[#1E1E1E] leading-tight">
-                    {item.restaurant}
-                  </h4>
-                  <div className="flex items-center gap-1 text-[10px] text-[#718096] mt-0.5">
-                    <MapPin className="w-2.5 h-2.5 text-red-500 shrink-0" />
-                    <span>{item.location}</span>
+        {checkInsLoading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <Skeleton key={index} className="h-20 rounded-xl" />
+            ))}
+          </div>
+        ) : checkIns.length === 0 ? (
+          <div className="rounded-xl border border-[#F0ECE1] py-8 text-center text-sm text-[#718096]">
+            Keine Check-ins gefunden.
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {checkIns.map((item) => (
+              <div
+                key={item._id}
+                className="flex items-center justify-between rounded-xl border border-[#F0ECE1] p-4 shadow-2xs"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100">
+                    {item.restaurantImage ? (
+                      <Image
+                        src={item.restaurantImage}
+                        alt={item.restaurantName ?? "Restaurant"}
+                        fill
+                        className="object-cover"
+                        sizes="32px"
+                      />
+                    ) : (
+                      <Utensils className="h-4 w-4 text-gray-400" />
+                    )}
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-[#1E1E1E]">
+                      {item.restaurantName ?? "Eintrag nicht verf\u00fcgbar"}
+                    </h4>
+                    {item.restaurantLocation && (
+                      <div className="mt-0.5 flex items-center gap-1 text-[10px] text-[#718096]">
+                        <MapPin className="h-2.5 w-2.5 shrink-0 text-red-500" />
+                        <span>{item.restaurantLocation}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
+                <span className="shrink-0 text-[11px] font-medium text-[#718096]">
+                  {formatDate(item.scheduleDate)}
+                </span>
               </div>
+            ))}
+          </div>
+        )}
+      </section>
 
-              <span className="text-[11px] text-[#718096] shrink-0 font-medium">
-                {item.date}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Section 2: Rezensionen (Reviews) */}
-      <div className="space-y-4 pt-4 border-t border-[#F5F2E8]">
+      <section className="space-y-4 border-t border-[#F5F2E8] pt-4">
         <div className="flex items-center justify-between">
           <h3 className="text-base font-bold text-[#1E1E1E]">Rezensionen</h3>
           <span className="text-xs text-[#718096]">
-            Ergebnis 7 der Überprüfung
+            {reviewsData?.meta.totalItems ?? 0} Ergebnisse
           </span>
         </div>
-
         {reviewsLoading ? (
           <div className="space-y-4">
             <Skeleton className="h-44 rounded-2xl" />
             <Skeleton className="h-44 rounded-2xl" />
           </div>
-        ) : (
+        ) : reviewsData?.data.length ? (
           <div className="space-y-4">
-            {reviewsData?.data?.slice(0, 2).map((review) => (
+            {reviewsData.data.map((review) => (
               <ReviewCard key={review._id} review={review} />
             ))}
           </div>
+        ) : (
+          <div className="rounded-xl border border-[#F0ECE1] py-8 text-center text-sm text-[#718096]">
+            Keine Bewertungen gefunden.
+          </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

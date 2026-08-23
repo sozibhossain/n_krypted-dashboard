@@ -7,7 +7,7 @@ interface ActiveRestaurantsDonutProps {
 }
 
 export function ActiveRestaurantsDonut({
-  activePercent = 78,
+  activePercent = 0,
 }: ActiveRestaurantsDonutProps) {
   const data = [
     { name: "Aktive Restaurants", value: activePercent, color: "#0097A7" },

@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { authApi } from "@/lib/api";
+import { authApi, getApiErrorMessage } from "@/lib/api";
 
 function VerifyOtpContent() {
   const router = useRouter();
@@ -68,10 +68,10 @@ function VerifyOtpContent() {
       await authApi.verifyOtp({ email, code });
       toast.success("Code erfolgreich verifiziert!");
       router.push(`/reset-password?email=${encodeURIComponent(email)}&code=${encodeURIComponent(code)}`);
-    } catch (err: any) {
-      // Allow demo navigation if backend OTP check fails in local mock
-      toast.info("Verifizierung abgeschlossen.");
-      router.push(`/reset-password?email=${encodeURIComponent(email)}&code=${encodeURIComponent(code)}`);
+    } catch (err: unknown) {
+      toast.error(
+        getApiErrorMessage(err, "Der Code konnte nicht verifiziert werden.")
+      );
     } finally {
       setIsLoading(false);
     }

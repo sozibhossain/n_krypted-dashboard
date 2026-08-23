@@ -6,10 +6,10 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function formatDate(dateInput?: string | Date): string {
-  if (!dateInput) return "4. Juni 2026";
+  if (!dateInput) return "\u2014";
   try {
     const d = new Date(dateInput);
-    if (isNaN(d.getTime())) return "4. Juni 2026";
+    if (isNaN(d.getTime())) return "\u2014";
     const day = d.getDate();
     const months = [
       "Januar",
@@ -29,20 +29,20 @@ export function formatDate(dateInput?: string | Date): string {
     const year = d.getFullYear();
     return `${day}. ${month} ${year}`;
   } catch {
-    return "4. Juni 2026";
+    return "\u2014";
   }
 }
 
 export function formatTime(dateInput?: string | Date): string {
-  if (!dateInput) return "21:30 Uhr";
+  if (!dateInput) return "\u2014";
   try {
     const d = new Date(dateInput);
-    if (isNaN(d.getTime())) return "21:30 Uhr";
+    if (isNaN(d.getTime())) return "\u2014";
     const hours = d.getHours().toString().padStart(2, "0");
     const minutes = d.getMinutes().toString().padStart(2, "0");
     return `${hours}:${minutes} Uhr`;
   } catch {
-    return "21:30 Uhr";
+    return "\u2014";
   }
 }
 
