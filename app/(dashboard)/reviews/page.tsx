@@ -99,9 +99,11 @@ export default function ReviewsPage() {
             className="inline-flex h-9 items-center gap-2 rounded-xl bg-red-600 px-3 text-xs font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Trash2 className="h-4 w-4" />
-            {bulkDeleteMutation.isPending
-              ? "Wird gel\u00f6scht..."
-              : `${selectedIds.size} l\u00f6schen`}
+            <span>
+              {bulkDeleteMutation.isPending
+                ? "Wird gelöscht..."
+                : `${selectedIds.size} löschen`}
+            </span>
           </button>
         )}
         <Link

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import {
   LayoutDashboard,
   Users,
@@ -47,6 +47,13 @@ interface SidebarProps {
 
 export function Sidebar({ onNavClick, className }: SidebarProps) {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const visibleNavigation =
+    session?.user?.role === "restaurant_owner"
+      ? navigation.filter(
+          (item) => item.href === "/restaurants" || item.href === "/settings"
+        )
+      : navigation;
 
   const handleSignOut = async () => {
     if (typeof window !== "undefined") {
@@ -92,7 +99,7 @@ export function Sidebar({ onNavClick, className }: SidebarProps) {
 
         {/* Navigation links */}
         <nav className="flex flex-col gap-2 relative z-10">
-          {navigation.map((item) => {
+          {visibleNavigation.map((item) => {
             const isActive = item.pattern.test(pathname);
             const Icon = item.icon;
 

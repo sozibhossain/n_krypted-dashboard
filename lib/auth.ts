@@ -26,6 +26,11 @@ export const authOptions: NextAuthOptions = {
           }
 
           const user = response.data.data;
+          if (user.role !== "admin" && user.role !== "restaurant_owner") {
+            throw new Error(
+              "This management dashboard is only available to administrators and restaurant owners."
+            );
+          }
           return {
             id: user._id ?? user.id,
             _id: user._id ?? user.id,

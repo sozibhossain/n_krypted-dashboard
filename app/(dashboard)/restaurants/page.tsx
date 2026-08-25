@@ -3,20 +3,36 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, Eye, Search, Trash2, Utensils } from "lucide-react";
+import { Ban, Check, Eye, Pencil, Plus, Search, Trash2, Utensils, X } from "lucide-react";
 import { toast } from "sonner";
-import { getApiErrorMessage, RestaurantItem, restaurantApi } from "@/lib/api";
+import {
+  AdminRestaurantPayload,
+  getApiErrorMessage,
+  RestaurantItem,
+  RestaurantPayload,
+  restaurantApi,
+} from "@/lib/api";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Pagination } from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RestaurantForm } from "@/components/restaurants/RestaurantForm";
+import { RestaurantOwnerWorkspace } from "@/components/restaurants/RestaurantOwnerWorkspace";
+import { Button } from "@/components/ui/button";
+import { Modal } from "@/components/ui/modal";
 
 export default function RestaurantManagementPage() {
   const queryClient = useQueryClient();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "admin";
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingRestaurant, setEditingRestaurant] = useState<RestaurantItem | null>(null);
+
   const { data, isLoading } = useQuery({
     queryKey: ["restaurants", currentPage, searchQuery],
     queryFn: () =>
@@ -25,36 +41,78 @@ export default function RestaurantManagementPage() {
         limit: 10,
         search: searchQuery,
       }),
+    enabled: isAdmin,
   });
+
+  const createMutation = useMutation({
+    mutationFn: (payload: AdminRestaurantPayload) => restaurantApi.createWithOwner(payload),
+    onSuccess: () => {
+      setIsModalOpen(false);
+      setEditingRestaurant(null);
+      toast.success("Restaurant und Owner-Login wurden erfolgreich erstellt.");
+      queryClient.invalidateQueries({ queryKey: ["restaurants"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+    },
+    onError: (error: unknown) =>
+      toast.error(getApiErrorMessage(error, "Restaurant konnte nicht erstellt werden")),
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: RestaurantPayload }) =>
+      restaurantApi.updateRestaurant(id, payload),
+    onSuccess: () => {
+      setIsModalOpen(false);
+      setEditingRestaurant(null);
+      toast.success("Restaurant wurde erfolgreich aktualisiert.");
+      queryClient.invalidateQueries({ queryKey: ["restaurants"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+    },
+    onError: (error: unknown) =>
+      toast.error(getApiErrorMessage(error, "Restaurant konnte nicht aktualisiert werden")),
+  });
+
+  const approvalMutation = useMutation({
+    mutationFn: ({ id, status, reason }: { id: string; status: "approved" | "rejected"; reason?: string }) =>
+      restaurantApi.updateApproval(id, status, reason),
+    onSuccess: (_, variables) => {
+      toast.success(variables.status === "approved" ? "Restaurant genehmigt" : "Restaurant abgelehnt");
+      queryClient.invalidateQueries({ queryKey: ["restaurants"] });
+    },
+    onError: (error: unknown) =>
+      toast.error(getApiErrorMessage(error, "Genehmigung konnte nicht geändert werden")),
+  });
+
   const toggleStatusMutation = useMutation({
     mutationFn: (id: string) => restaurantApi.toggleStatus(id),
     onSuccess: () => {
-      toast.success("Status des Restaurants erfolgreich ge\u00e4ndert!");
+      toast.success("Status des Restaurants erfolgreich geändert!");
       queryClient.invalidateQueries({ queryKey: ["restaurants"] });
     },
     onError: () =>
-      toast.error("Der Restaurantstatus konnte nicht ge\u00e4ndert werden."),
+      toast.error("Der Restaurantstatus konnte nicht geändert werden."),
   });
 
   const handleToggleStatus = (restaurant: RestaurantItem) => {
     toggleStatusMutation.mutate(restaurant._id);
   };
+
   const currentPageIds = data?.data.map((restaurant) => restaurant._id) ?? [];
   const allSelected =
     currentPageIds.length > 0 && currentPageIds.every((id) => selectedIds.has(id));
+
   const bulkDeleteMutation = useMutation({
     mutationFn: (ids: string[]) => restaurantApi.bulkDeleteRestaurants(ids),
     onSuccess: (result) => {
       setSelectedIds(new Set());
       setCurrentPage(1);
-      toast.success(`${result.deletedCount} Restaurants wurden gel\u00f6scht.`);
+      toast.success(`${result.deletedCount} Restaurants wurden gelöscht.`);
       queryClient.invalidateQueries({ queryKey: ["restaurants"] });
       queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
       queryClient.invalidateQueries({ queryKey: ["top-reviews"] });
     },
     onError: (error: unknown) =>
       toast.error(
-        getApiErrorMessage(error, "Die Restaurants konnten nicht gel\u00f6scht werden.")
+        getApiErrorMessage(error, "Die Restaurants konnten nicht gelöscht werden.")
       ),
   });
 
@@ -81,182 +139,296 @@ export default function RestaurantManagementPage() {
     if (
       ids.length > 0 &&
       window.confirm(
-        `${ids.length} ausgew\u00e4hlte Restaurants dauerhaft l\u00f6schen? Diese Aktion kann nicht r\u00fcckg\u00e4ngig gemacht werden.`
+        `${ids.length} ausgewählte Restaurants dauerhaft löschen? Diese Aktion kann nicht rückgängig gemacht werden.`
       )
     ) {
       bulkDeleteMutation.mutate(ids);
     }
   };
 
-  return (
-    <div className="rounded-3xl border border-[#F0ECE1] bg-white p-6 shadow-xs sm:p-8">
-      <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
-        <div>
-          <h2 className="text-xl font-bold text-[#1E1E1E]">Alle Restaurants</h2>
-          <p className="mt-0.5 text-xs text-[#718096] sm:text-sm">
-            Alle Restaurants anzeigen.
-          </p>
-        </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
-          {selectedIds.size > 0 && (
-            <button
-              type="button"
-              onClick={handleBulkDelete}
-              disabled={bulkDeleteMutation.isPending}
-              className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 text-xs font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Trash2 className="h-4 w-4" />
-              {bulkDeleteMutation.isPending
-                ? "Wird gel\u00f6scht..."
-                : `${selectedIds.size} l\u00f6schen`}
-            </button>
-          )}
-        <div className="relative w-full sm:w-64">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <Input
-            type="text"
-            placeholder="Restaurant suchen..."
-            value={searchQuery}
-            onChange={(event) => {
-              setSearchQuery(event.target.value);
-              setCurrentPage(1);
-              setSelectedIds(new Set());
-            }}
-            className="h-10 rounded-xl border-[#E2E8F0] pl-9 text-xs focus-visible:ring-[#0097A7]"
-          />
-        </div>
-        </div>
-      </div>
+  if (!isAdmin) return <RestaurantOwnerWorkspace />;
 
-      <div className="overflow-x-auto rounded-2xl border border-[#F0ECE1]">
-        <table className="w-full border-collapse text-left">
-          <thead>
-            <tr className="border-b border-[#F0ECE1] bg-[#FFFBE9] text-xs font-semibold text-[#1E1E1E]">
-              <th className="py-4 pl-5 pr-2">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={toggleCurrentPage}
-                  disabled={currentPageIds.length === 0}
-                  aria-label="Alle Restaurants auf dieser Seite ausw\u00e4hlen"
-                  className="h-4 w-4 accent-[#0097A7]"
-                />
-              </th>
-              <th className="px-5 py-4">Name des Restaurants</th>
-              <th className="px-5 py-4">Standort</th>
-              <th className="px-5 py-4">Bewertung</th>
-              <th className="px-5 py-4">Rezension</th>
-              <th className="px-5 py-4">Status</th>
-              <th className="px-5 py-4 text-center">Aktion</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#F5F2E8] text-xs sm:text-sm">
-            {isLoading ? (
-              Array.from({ length: 8 }).map((_, index) => (
-                <tr key={index}>
-                  {Array.from({ length: 7 }).map((__, cell) => (
-                    <td key={cell} className="px-5 py-3.5">
-                      <Skeleton className="h-4 w-20" />
-                    </td>
-                  ))}
-                </tr>
-              ))
-            ) : data?.data.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="py-12 text-center text-gray-500">
-                  Keine Restaurants gefunden.
-                </td>
+  return (
+    <div className="space-y-6">
+      {/* Modal for Create / Edit Restaurant */}
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingRestaurant(null);
+        }}
+        title={editingRestaurant ? "Restaurant bearbeiten" : "Restaurant direkt erstellen"}
+        description={
+          editingRestaurant
+            ? `Details und Standort für "${editingRestaurant.title}" anpassen.`
+            : "Erstellt gleichzeitig den Login für den Restaurantbesitzer und genehmigt das Restaurant."
+        }
+        maxWidth="max-w-4xl"
+      >
+        <RestaurantForm
+          key={editingRestaurant?._id || "create"}
+          restaurant={editingRestaurant}
+          includeOwner={!editingRestaurant}
+          submitting={createMutation.isPending || updateMutation.isPending}
+          onCancel={() => {
+            setIsModalOpen(false);
+            setEditingRestaurant(null);
+          }}
+          onSubmit={(payload) => {
+            if (editingRestaurant) {
+              updateMutation.mutate({
+                id: editingRestaurant._id,
+                payload: payload as RestaurantPayload,
+              });
+            } else {
+              createMutation.mutate(payload as AdminRestaurantPayload);
+            }
+          }}
+        />
+      </Modal>
+
+      <section className="rounded-3xl border border-[#F0ECE1] bg-white p-6 shadow-xs sm:p-8">
+        <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <h2 className="text-xl font-bold text-[#1E1E1E]">Alle Restaurants</h2>
+            <p className="mt-0.5 text-xs text-[#718096] sm:text-sm">
+              Alle Restaurants anzeigen, erstellen und verwalten.
+            </p>
+          </div>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => {
+                setEditingRestaurant(null);
+                setIsModalOpen(true);
+              }}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <Plus className="h-4 w-4" />
+                <span>Restaurant erstellen</span>
+              </span>
+            </Button>
+            {isAdmin && selectedIds.size > 0 && (
+              <button
+                type="button"
+                onClick={handleBulkDelete}
+                disabled={bulkDeleteMutation.isPending}
+                className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-red-600 px-4 text-xs font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Trash2 className="h-4 w-4" />
+                <span>
+                  {bulkDeleteMutation.isPending
+                    ? "Wird gelöscht..."
+                    : `${selectedIds.size} löschen`}
+                </span>
+              </button>
+            )}
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Restaurant suchen..."
+                value={searchQuery}
+                onChange={(event) => {
+                  setSearchQuery(event.target.value);
+                  setCurrentPage(1);
+                  setSelectedIds(new Set());
+                }}
+                className="h-10 rounded-xl border-[#E2E8F0] pl-9 text-xs focus-visible:ring-[#0097A7]"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto rounded-2xl border border-[#F0ECE1]">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-[#F0ECE1] bg-[#FFFBE9] text-xs font-semibold text-[#1E1E1E]">
+                {isAdmin && (
+                  <th className="py-4 pl-5 pr-2">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleCurrentPage}
+                      disabled={currentPageIds.length === 0}
+                      aria-label="Alle Restaurants auf dieser Seite auswählen"
+                      className="h-4 w-4 accent-[#0097A7]"
+                    />
+                  </th>
+                )}
+                <th className="px-5 py-4">Name des Restaurants</th>
+                <th className="px-5 py-4">Standort</th>
+                <th className="px-5 py-4">Bewertung</th>
+                <th className="px-5 py-4">Rezension</th>
+                <th className="px-5 py-4">Genehmigung</th>
+                <th className="px-5 py-4 text-center">Aktion</th>
               </tr>
-            ) : (
-              data?.data.map((restaurant) => {
-                const isActivated = restaurant.status === "activate";
-                const location = [
-                  restaurant.location?.city,
-                  restaurant.location?.country,
-                ]
-                  .filter(Boolean)
-                  .join(", ");
-                return (
-                  <tr key={restaurant._id} className="transition-colors hover:bg-[#FFFDF5]">
-                    <td className="py-3.5 pl-5 pr-2">
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.has(restaurant._id)}
-                        onChange={() => toggleSelected(restaurant._id)}
-                        aria-label={`${restaurant.title} ausw\u00e4hlen`}
-                        className="h-4 w-4 accent-[#0097A7]"
-                      />
-                    </td>
-                    <td className="px-5 py-3.5 font-medium text-[#1E1E1E]">
-                      <div className="flex items-center gap-3">
-                        <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100">
-                          {restaurant.images[0] ? (
-                            <Image
-                              src={restaurant.images[0]}
-                              alt={restaurant.title}
-                              fill
-                              className="object-cover"
-                              sizes="32px"
-                            />
-                          ) : (
-                            <Utensils className="h-4 w-4 text-gray-400" />
+            </thead>
+            <tbody className="divide-y divide-[#F5F2E8] text-xs sm:text-sm">
+              {isLoading ? (
+                Array.from({ length: 8 }).map((_, index) => (
+                  <tr key={index}>
+                    {Array.from({ length: isAdmin ? 7 : 6 }).map((__, cell) => (
+                      <td key={cell} className="px-5 py-3.5">
+                        <Skeleton className="h-4 w-20" />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : data?.data.length === 0 ? (
+                <tr>
+                  <td colSpan={isAdmin ? 7 : 6} className="py-12 text-center text-gray-500">
+                    Keine Restaurants gefunden.
+                  </td>
+                </tr>
+              ) : (
+                data?.data.map((restaurant) => {
+                  const isActivated = restaurant.status === "activate";
+                  const location = [
+                    restaurant.location?.city,
+                    restaurant.location?.country,
+                  ]
+                    .filter(Boolean)
+                    .join(", ");
+                  return (
+                    <tr key={restaurant._id} className="transition-colors hover:bg-[#FFFDF5]">
+                      {isAdmin && (
+                        <td className="py-3.5 pl-5 pr-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedIds.has(restaurant._id)}
+                            onChange={() => toggleSelected(restaurant._id)}
+                            aria-label={`${restaurant.title} auswählen`}
+                            className="h-4 w-4 accent-[#0097A7]"
+                          />
+                        </td>
+                      )}
+                      <td className="px-5 py-3.5 font-medium text-[#1E1E1E]">
+                        <div className="flex items-center gap-3">
+                          <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100">
+                            {restaurant.images[0] ? (
+                              <Image
+                                src={restaurant.images[0]}
+                                alt={restaurant.title}
+                                fill
+                                className="object-cover"
+                                sizes="32px"
+                              />
+                            ) : (
+                              <Utensils className="h-4 w-4 text-gray-400" />
+                            )}
+                          </div>
+                          <span>{restaurant.title}</span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-[#718096]">{location || "—"}</td>
+                      <td className="px-5 py-3.5 font-medium text-[#1E1E1E]">
+                        {restaurant.rating.toFixed(1).replace(".", ",")}
+                      </td>
+                      <td className="px-5 py-3.5 font-medium text-[#1E1E1E]">
+                        {restaurant.reviewCount}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <Badge variant={restaurant.approvalStatus === "approved" ? "active" : "inactive"}>
+                          {restaurant.approvalStatus === "approved"
+                            ? "Genehmigt"
+                            : restaurant.approvalStatus === "rejected"
+                            ? "Abgelehnt"
+                            : "Ausstehend"}
+                        </Badge>
+                      </td>
+                      <td className="px-5 py-3.5 text-center">
+                        <div className="flex items-center justify-center gap-2.5">
+                          <Link
+                            href={`/restaurants/${restaurant._id}`}
+                            className="cursor-pointer rounded-md p-1.5 text-[#0097A7] transition-colors hover:bg-[#E0F7FA] hover:text-[#00838F]"
+                            title="Details anzeigen"
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Link>
+                          {isAdmin && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingRestaurant(restaurant);
+                                  setIsModalOpen(true);
+                                }}
+                                className="cursor-pointer rounded-md p-1.5 text-[#0097A7] transition-colors hover:bg-[#E0F7FA] hover:text-[#00838F]"
+                                title="Restaurant bearbeiten"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              {restaurant.approvalStatus !== "approved" && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    approvalMutation.mutate({ id: restaurant._id, status: "approved" })
+                                  }
+                                  disabled={approvalMutation.isPending}
+                                  className="cursor-pointer rounded-md p-1.5 text-emerald-600 transition-colors hover:bg-emerald-50 hover:text-emerald-800"
+                                  title="Genehmigen"
+                                >
+                                  <Check className="h-4 w-4" />
+                                </button>
+                              )}
+                              {restaurant.approvalStatus === "pending" && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const reason = window.prompt("Ablehnungsgrund");
+                                    if (reason)
+                                      approvalMutation.mutate({
+                                        id: restaurant._id,
+                                        status: "rejected",
+                                        reason,
+                                      });
+                                  }}
+                                  disabled={approvalMutation.isPending}
+                                  className="cursor-pointer rounded-md p-1.5 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
+                                  title="Ablehnen"
+                                >
+                                  <X className="h-4 w-4" />
+                                </button>
+                              )}
+                              {restaurant.approvalStatus === "approved" && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleStatus(restaurant)}
+                                  disabled={toggleStatusMutation.isPending}
+                                  className="cursor-pointer rounded-md p-1.5 text-[#EF4444] transition-colors hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                                  title={isActivated ? "Deaktivieren" : "Aktivieren"}
+                                >
+                                  <Ban className="h-4 w-4" />
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
-                        <span>{restaurant.title}</span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 text-[#718096]">{location || "\u2014"}</td>
-                    <td className="px-5 py-3.5 font-medium text-[#1E1E1E]">
-                      {restaurant.rating.toFixed(1).replace(".", ",")}
-                    </td>
-                    <td className="px-5 py-3.5 font-medium text-[#1E1E1E]">
-                      {restaurant.reviewCount}
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <Badge variant={isActivated ? "active" : "inactive"}>
-                        {isActivated ? "Aktiv" : "Inaktiv"}
-                      </Badge>
-                    </td>
-                    <td className="px-5 py-3.5 text-center">
-                      <div className="flex items-center justify-center gap-3">
-                        <Link
-                          href={`/restaurants/${restaurant._id}`}
-                          className="rounded-md p-1 text-[#0097A7] transition-colors hover:text-[#00838F]"
-                          title="Details anzeigen"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                        <button
-                          onClick={() => handleToggleStatus(restaurant)}
-                          disabled={toggleStatusMutation.isPending}
-                          className="cursor-pointer rounded-md p-1 text-[#EF4444] transition-colors hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-50"
-                          title="Status umschalten"
-                        >
-                          <Ban className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
 
-      {data && (
-        <Pagination
-          currentPage={data.meta.currentPage}
-          totalPages={data.meta.totalPages}
-          totalItems={data.meta.totalItems}
-          itemsPerPage={data.meta.itemsPerPage}
-          onPageChange={(page) => {
-            setCurrentPage(page);
-            setSelectedIds(new Set());
-          }}
-          className="mt-2"
-        />
-      )}
+        {data && (
+          <Pagination
+            currentPage={data.meta.currentPage}
+            totalPages={data.meta.totalPages}
+            totalItems={data.meta.totalItems}
+            itemsPerPage={data.meta.itemsPerPage}
+            onPageChange={(page) => {
+              setCurrentPage(page);
+              setSelectedIds(new Set());
+            }}
+            className="mt-2"
+          />
+        )}
+      </section>
     </div>
   );
 }

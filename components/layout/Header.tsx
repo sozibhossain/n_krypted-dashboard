@@ -24,7 +24,11 @@ export function Header({ onOpenMobileMenu }: HeaderProps) {
 
   const userName = user?.name ?? "";
   const userRole =
-    user?.role === "admin" ? "Administrator" : user?.role ?? "";
+    user?.role === "admin"
+      ? "Administrator"
+      : user?.role === "restaurant_owner"
+        ? "Restaurantbesitzer"
+        : user?.role ?? "";
   const userAvatar = user?.avatar || user?.image;
 
   return (

@@ -362,18 +362,20 @@ export default function SettingsPage() {
         {isContactOpen && (
           <div className="px-5 pb-5 pt-1">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
+              <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#334155]">
+                <span>Vorname</span>
                 <Input
                   type="text"
-                  placeholder="Erste"
+                  placeholder="Vorname"
                   value={resolvedFirstName}
                   onChange={(e) => setFirstName(e.target.value)}
                   disabled={!isContactEditing || isSavingContact}
                   className="h-11 text-xs border-[#90CAF9] focus-visible:ring-[#0097A7]"
                 />
-              </div>
+              </label>
 
-              <div>
+              <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#334155]">
+                <span>Nachname</span>
                 <Input
                   type="text"
                   placeholder="Nachname"
@@ -382,18 +384,19 @@ export default function SettingsPage() {
                   disabled={!isContactEditing || isSavingContact}
                   className="h-11 text-xs border-[#90CAF9] focus-visible:ring-[#0097A7]"
                 />
-              </div>
+              </label>
 
-              <div>
+              <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#334155]">
+                <span>E-Mail</span>
                 <Input
                   type="email"
-                  placeholder="E-Mail"
+                  placeholder="E-Mail-Adresse"
                   value={resolvedEmail}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={!isContactEditing || isSavingContact}
                   className="h-11 text-xs border-[#90CAF9] focus-visible:ring-[#0097A7]"
                 />
-              </div>
+              </label>
             </div>
           </div>
         )}
@@ -438,73 +441,82 @@ export default function SettingsPage() {
         {isPasswordOpen && (
           <div className="px-5 pb-5 pt-1">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="relative">
-                <Input
-                  type={showCurrentPassword ? "text" : "password"}
-                  placeholder="Aktuelles Passwort"
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  disabled={isSavingPassword}
-                  className="h-11 text-xs border-[#90CAF9] focus-visible:ring-[#0097A7] pr-9"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showCurrentPassword ? (
-                    <EyeOff className="w-3.5 h-3.5" />
-                  ) : (
-                    <Eye className="w-3.5 h-3.5" />
-                  )}
-                </button>
-              </div>
+              <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#334155]">
+                <span>Aktuelles Passwort</span>
+                <div className="relative">
+                  <Input
+                    type={showCurrentPassword ? "text" : "password"}
+                    placeholder="Aktuelles Passwort"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    disabled={isSavingPassword}
+                    className="h-11 text-xs border-[#90CAF9] focus-visible:ring-[#0097A7] pr-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showCurrentPassword ? (
+                      <EyeOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Eye className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
+              </label>
 
-              <div className="relative">
-                <Input
-                  type={showNewPassword ? "text" : "password"}
-                  placeholder="Neues Passwort"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  disabled={isSavingPassword}
-                  className="h-11 text-xs border-[#90CAF9] focus-visible:ring-[#0097A7] pr-9"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showNewPassword ? (
-                    <EyeOff className="w-3.5 h-3.5" />
-                  ) : (
-                    <Eye className="w-3.5 h-3.5" />
-                  )}
-                </button>
-              </div>
+              <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#334155]">
+                <span>Neues Passwort</span>
+                <div className="relative">
+                  <Input
+                    type={showNewPassword ? "text" : "password"}
+                    placeholder="Neues Passwort"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    disabled={isSavingPassword}
+                    className="h-11 text-xs border-[#90CAF9] focus-visible:ring-[#0097A7] pr-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showNewPassword ? (
+                      <EyeOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Eye className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
+              </label>
 
-              <div className="relative">
-                <Input
-                  type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Passwort bestätigen"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  disabled={isSavingPassword}
-                  className="h-11 text-xs border-[#90CAF9] focus-visible:ring-[#0097A7] pr-9"
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setShowConfirmPassword(!showConfirmPassword)
-                  }
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showConfirmPassword ? (
-                    <EyeOff className="w-3.5 h-3.5" />
-                  ) : (
-                    <Eye className="w-3.5 h-3.5" />
-                  )}
-                </button>
-              </div>
+              <label className="flex flex-col gap-1.5 text-xs font-semibold text-[#334155]">
+                <span>Passwort bestätigen</span>
+                <div className="relative">
+                  <Input
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Passwort bestätigen"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={isSavingPassword}
+                    className="h-11 text-xs border-[#90CAF9] focus-visible:ring-[#0097A7] pr-9"
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setShowConfirmPassword(!showConfirmPassword)
+                    }
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Eye className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
+              </label>
             </div>
           </div>
         )}

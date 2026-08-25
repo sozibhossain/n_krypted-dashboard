@@ -66,46 +66,52 @@ function ResetPasswordContent() {
         Ihr neues Passwort sollte leicht zu merken und schwer zu erraten sein.
       </p>
 
-      <form onSubmit={handleSubmit} className="w-full space-y-4 text-left">
-        <div className="relative">
-          <Input
-            type={showPassword ? "text" : "password"}
-            placeholder="Neues Passwort"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={isLoading}
-            required
-            className="h-12 border-[#90CAF9] focus-visible:ring-[#0097A7] pr-10"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
-            aria-label={showPassword ? "Passwort verbergen" : "Passwort anzeigen"}
-          >
-            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          </button>
-        </div>
+      <form onSubmit={handleSubmit} className="w-full space-y-5 text-left">
+        <label className="flex flex-col gap-2 text-xs font-semibold text-[#334155]">
+          <span>Neues Passwort</span>
+          <div className="relative">
+            <Input
+              type={showPassword ? "text" : "password"}
+              placeholder="Mindestens 6 Zeichen"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading}
+              required
+              className="h-12 border-[#90CAF9] focus-visible:ring-[#0097A7] pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+              aria-label={showPassword ? "Passwort verbergen" : "Passwort anzeigen"}
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </label>
 
-        <div className="relative">
-          <Input
-            type={showConfirmPassword ? "text" : "password"}
-            placeholder="Passwort bestätigen"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            disabled={isLoading}
-            required
-            className="h-12 border-[#90CAF9] focus-visible:ring-[#0097A7] pr-10"
-          />
-          <button
-            type="button"
-            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
-            aria-label={showConfirmPassword ? "Passwort verbergen" : "Passwort anzeigen"}
-          >
-            {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-          </button>
-        </div>
+        <label className="flex flex-col gap-2 text-xs font-semibold text-[#334155]">
+          <span>Passwort bestätigen</span>
+          <div className="relative">
+            <Input
+              type={showConfirmPassword ? "text" : "password"}
+              placeholder="Passwort erneut eingeben"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={isLoading}
+              required
+              className="h-12 border-[#90CAF9] focus-visible:ring-[#0097A7] pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+              aria-label={showConfirmPassword ? "Passwort verbergen" : "Passwort anzeigen"}
+            >
+              {showConfirmPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        </label>
 
         <Button
           type="submit"

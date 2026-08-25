@@ -56,42 +56,46 @@ export default function SignInPage() {
         Melden Sie sich an, um weiterhin unvergessliche Spezialitäten in Ihrer Nähe zu entdecken.
       </p>
 
-      <form onSubmit={handleSubmit} className="w-full space-y-4 text-left">
-        <div>
+      <form onSubmit={handleSubmit} className="w-full space-y-5 text-left">
+        <label className="flex flex-col gap-2 text-xs font-semibold text-[#334155]">
+          <span>E-Mail</span>
           <Input
             type="email"
-            placeholder="E-Mail"
+            placeholder="Ihre E-Mail-Adresse"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             disabled={isLoading}
             required
             className="h-12 border-[#90CAF9] focus-visible:ring-[#0097A7]"
           />
-        </div>
+        </label>
 
-        <div className="relative">
-          <Input
-            type={showPassword ? "text" : "password"}
-            placeholder="Passwort"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={isLoading}
-            required
-            className="h-12 border-[#90CAF9] focus-visible:ring-[#0097A7] pr-10"
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword(!showPassword)}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
-            aria-label={showPassword ? "Passwort verbergen" : "Passwort anzeigen"}
-          >
-            {showPassword ? (
-              <EyeOff className="w-4 h-4" />
-            ) : (
-              <Eye className="w-4 h-4" />
-            )}
-          </button>
-        </div>
+        <label className="flex flex-col gap-2 text-xs font-semibold text-[#334155]">
+          <span>Passwort</span>
+          <div className="relative">
+            <Input
+              type={showPassword ? "text" : "password"}
+              placeholder="Ihr Passwort"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={isLoading}
+              required
+              className="h-12 border-[#90CAF9] focus-visible:ring-[#0097A7] pr-10"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+              aria-label={showPassword ? "Passwort verbergen" : "Passwort anzeigen"}
+            >
+              {showPassword ? (
+                <EyeOff className="w-4 h-4" />
+              ) : (
+                <Eye className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+        </label>
 
         <div className="flex items-center justify-between text-xs sm:text-sm pt-1 pb-2">
           <label className="flex items-center gap-2 cursor-pointer text-[#718096]">

@@ -62,6 +62,29 @@ export interface UserItem {
   status: "Aktiv" | "Inaktiv";
 }
 
+export interface RestaurantOwnerItem {
+  _id: string;
+  name: string;
+  email: string;
+  phoneNumber?: string;
+  country?: string;
+  cityState?: string;
+  avatar?: string;
+  role: "restaurant_owner";
+  isVerified: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface RestaurantOwnerPayload {
+  name: string;
+  email: string;
+  password?: string;
+  phoneNumber?: string;
+  country?: string;
+  cityState?: string;
+}
+
 export interface CategoryItem {
   _id: string;
   categoryName: string;
@@ -81,7 +104,17 @@ export interface RestaurantItem {
   shortDescription?: string;
   description: string;
   price: number;
-  location?: { country?: string; city?: string };
+  location?: {
+    country?: string;
+    city?: string;
+    address?: string;
+    latitude?: number;
+    longitude?: number;
+  };
+  owner?: RestaurantOwnerItem | string;
+  approvalStatus: "pending" | "approved" | "rejected";
+  rejectionReason?: string;
+  dishes: DishItem[];
   images: string[];
   offers: string[];
   status: "activate" | "deactivate";
@@ -91,6 +124,53 @@ export interface RestaurantItem {
   totalCheckIns: number;
   scheduleDates: ScheduleDateItem[];
   createdAt?: string;
+}
+
+export interface DishItem {
+  _id: string;
+  name: string;
+  description?: string;
+  price: number;
+  image?: string;
+  category?: string;
+  isSignatureDish: boolean;
+  isActive: boolean;
+}
+
+export interface RestaurantPayload {
+  title: string;
+  shortDescription?: string;
+  description: string;
+  price?: number;
+  category?: string;
+  images?: string[];
+  offers?: string[];
+  location: {
+    address: string;
+    city: string;
+    country: string;
+    latitude: number;
+    longitude: number;
+  };
+}
+
+export interface AdminRestaurantPayload extends RestaurantPayload {
+  owner: {
+    name: string;
+    email: string;
+    password: string;
+    phoneNumber?: string;
+  };
+}
+
+export interface DishPayload {
+  name: string;
+  description?: string;
+  price: number;
+  image?: string;
+  category?: string;
+  isSignatureDish?: boolean;
+  isActive?: boolean;
 }
 
 export interface ReviewItem {
@@ -212,6 +292,10 @@ const mapRestaurant = (deal: RawRestaurant): RestaurantItem => ({
   description: deal.description,
   price: deal.price,
   location: deal.location,
+  owner: deal.owner,
+  approvalStatus: deal.approvalStatus ?? "approved",
+  rejectionReason: deal.rejectionReason,
+  dishes: deal.dishes ?? [],
   images: deal.images ?? [],
   offers: deal.offers ?? [],
   status: deal.status === "activate" ? "activate" : "deactivate",
@@ -320,6 +404,34 @@ export const userApi = {
     (await api.delete("/auth/delete/users", { data: { ids } })).data,
 };
 
+export const restaurantOwnerApi = {
+  getAll: async (params?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+  }): Promise<{ data: RestaurantOwnerItem[]; meta: MetaPagination }> => {
+    const response = await api.get("/auth/restaurant-owners", {
+      params: {
+        page: params?.page ?? 1,
+        limit: params?.limit ?? 10,
+        search: params?.search || undefined,
+      },
+    });
+    const owners: RestaurantOwnerItem[] = response.data?.data ?? [];
+    return {
+      data: owners,
+      meta: response.data?.meta ?? emptyMeta(params, owners.length),
+    };
+  },
+  create: async (data: RestaurantOwnerPayload): Promise<RestaurantOwnerItem> =>
+    (await api.post("/auth/restaurant-owners", data)).data.data,
+  update: async (
+    id: string,
+    data: RestaurantOwnerPayload
+  ): Promise<RestaurantOwnerItem> =>
+    (await api.put(`/auth/restaurant-owners/${id}`, data)).data.data,
+};
+
 export const bookingApi = {
   getUserCheckIns: async (userId: string): Promise<CheckInItem[]> => {
     const response = await api.get("/bookings/notify-false", {
@@ -355,24 +467,66 @@ export const restaurantApi = {
     status?: string;
     search?: string;
   }): Promise<{ data: RestaurantItem[]; meta: MetaPagination }> => {
-    const response = await api.get("/deals", {
+    const response = await api.get("/manage/deals", {
       params: {
-        showAll: "true",
         page: params?.page ?? 1,
         limit: params?.limit ?? 10,
         title: params?.search || undefined,
         status: params?.status || undefined,
       },
     });
-    const deals: RawRestaurant[] = response.data?.deals ?? [];
+    const deals: RawRestaurant[] = response.data?.restaurants ?? [];
     return {
       data: deals.map(mapRestaurant),
       meta: response.data?.pagination ?? emptyMeta(params, deals.length),
     };
   },
   getRestaurantById: async (id: string): Promise<RestaurantItem> => {
-    const response = await api.get(`/deals/${id}`);
-    return mapRestaurant(response.data.deal);
+    const response = await api.get(`/manage/deals/${id}`);
+    return mapRestaurant(response.data.restaurant);
+  },
+  getMine: async (): Promise<RestaurantItem | null> => {
+    const response = await api.get("/owner/restaurant");
+    return response.data.restaurant ? mapRestaurant(response.data.restaurant) : null;
+  },
+  submitMine: async (data: RestaurantPayload): Promise<RestaurantItem> => {
+    const response = await api.post("/owner/restaurant", data);
+    return mapRestaurant(response.data.restaurant);
+  },
+  resubmitMine: async (id: string, data: RestaurantPayload): Promise<RestaurantItem> => {
+    const response = await api.put(`/owner/restaurant/${id}`, data);
+    return mapRestaurant(response.data.restaurant);
+  },
+  createWithOwner: async (data: AdminRestaurantPayload): Promise<RestaurantItem> => {
+    const response = await api.post("/admin/restaurants", data);
+    return mapRestaurant(response.data.restaurant);
+  },
+  updateRestaurant: async (id: string, data: RestaurantPayload): Promise<RestaurantItem> => {
+    const response = await api.put(`/admin/restaurants/${id}`, data);
+    return mapRestaurant(response.data.restaurant);
+  },
+  updateApproval: async (
+    id: string,
+    status: "approved" | "rejected",
+    rejectionReason?: string
+  ): Promise<RestaurantItem> => {
+    const response = await api.patch(`/admin/restaurants/${id}/approval`, {
+      status,
+      rejectionReason,
+    });
+    return mapRestaurant(response.data.restaurant);
+  },
+  addDish: async (id: string, data: DishPayload): Promise<RestaurantItem> => {
+    const response = await api.post(`/restaurants/${id}/dishes`, data);
+    return mapRestaurant(response.data.restaurant);
+  },
+  updateDish: async (id: string, dishId: string, data: DishPayload): Promise<RestaurantItem> => {
+    const response = await api.put(`/restaurants/${id}/dishes/${dishId}`, data);
+    return mapRestaurant(response.data.restaurant);
+  },
+  deleteDish: async (id: string, dishId: string): Promise<RestaurantItem> => {
+    const response = await api.delete(`/restaurants/${id}/dishes/${dishId}`);
+    return mapRestaurant(response.data.restaurant);
   },
   toggleStatus: async (id: string) =>
     (await api.patch(`/deals/${id}/status`)).data,

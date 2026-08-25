@@ -1,26 +1,33 @@
 "use client";
 
-import { use } from "react";
+import { useState, use } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowLeft,
   Ban,
+  Check,
   CalendarDays,
   MapPin,
   MessageSquare,
+  Pencil,
   Star,
   ThumbsUp,
   Utensils,
   WalletCards,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
-import { restaurantApi, reviewApi } from "@/lib/api";
+import { getApiErrorMessage, RestaurantPayload, restaurantApi, reviewApi } from "@/lib/api";
 import { ReviewCard } from "@/components/dashboard/ReviewCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate, formatPrice } from "@/lib/utils";
+import { DishManager } from "@/components/restaurants/DishManager";
+import { RestaurantForm } from "@/components/restaurants/RestaurantForm";
+import { Modal } from "@/components/ui/modal";
 
 interface RestaurantDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -28,7 +35,10 @@ interface RestaurantDetailsPageProps {
 
 export default function RestaurantDetailsPage({ params }: RestaurantDetailsPageProps) {
   const { id } = use(params);
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "admin";
   const queryClient = useQueryClient();
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const { data: restaurant, isLoading } = useQuery({
     queryKey: ["restaurant-detail", id],
     queryFn: () => restaurantApi.getRestaurantById(id),
@@ -36,6 +46,18 @@ export default function RestaurantDetailsPage({ params }: RestaurantDetailsPageP
   const { data: reviewsData, isLoading: reviewsLoading } = useQuery({
     queryKey: ["restaurant-reviews", id],
     queryFn: () => reviewApi.getAllReviews({ dealId: id, limit: 6 }),
+  });
+  const updateMutation = useMutation({
+    mutationFn: (payload: RestaurantPayload) =>
+      restaurantApi.updateRestaurant(id, payload),
+    onSuccess: () => {
+      setIsEditModalOpen(false);
+      toast.success("Restaurant erfolgreich aktualisiert.");
+      queryClient.invalidateQueries({ queryKey: ["restaurant-detail", id] });
+      queryClient.invalidateQueries({ queryKey: ["restaurants"] });
+    },
+    onError: (error: unknown) =>
+      toast.error(getApiErrorMessage(error, "Restaurant konnte nicht aktualisiert werden.")),
   });
   const toggleStatusMutation = useMutation({
     mutationFn: () => restaurantApi.toggleStatus(id),
@@ -46,6 +68,16 @@ export default function RestaurantDetailsPage({ params }: RestaurantDetailsPageP
     },
     onError: () =>
       toast.error("Der Restaurantstatus konnte nicht ge\u00e4ndert werden."),
+  });
+  const approvalMutation = useMutation({
+    mutationFn: ({ status, rejectionReason }: { status: "approved" | "rejected"; rejectionReason?: string }) =>
+      restaurantApi.updateApproval(id, status, rejectionReason),
+    onSuccess: () => {
+      toast.success("Restaurantgenehmigung aktualisiert");
+      queryClient.invalidateQueries({ queryKey: ["restaurant-detail", id] });
+      queryClient.invalidateQueries({ queryKey: ["restaurants"] });
+    },
+    onError: () => toast.error("Restaurantgenehmigung konnte nicht aktualisiert werden."),
   });
 
   const location = [restaurant?.location?.city, restaurant?.location?.country]
@@ -58,6 +90,25 @@ export default function RestaurantDetailsPage({ params }: RestaurantDetailsPageP
 
   return (
     <div className="space-y-8 rounded-3xl border border-[#F0ECE1] bg-white p-6 shadow-xs sm:p-8">
+      {restaurant && (
+        <Modal
+          isOpen={isEditModalOpen}
+          onClose={() => setIsEditModalOpen(false)}
+          title="Restaurant bearbeiten"
+          description={`Details und Standort für "${restaurant.title}" anpassen.`}
+          maxWidth="max-w-4xl"
+        >
+          <RestaurantForm
+            key={restaurant._id}
+            restaurant={restaurant}
+            includeOwner={false}
+            submitting={updateMutation.isPending}
+            onCancel={() => setIsEditModalOpen(false)}
+            onSubmit={(payload) => updateMutation.mutate(payload as RestaurantPayload)}
+          />
+        </Modal>
+      )}
+
       <Link
         href="/restaurants"
         className="inline-flex items-center gap-2 text-xs font-semibold text-[#0097A7] hover:underline sm:text-sm"
@@ -99,17 +150,58 @@ export default function RestaurantDetailsPage({ params }: RestaurantDetailsPageP
             </div>
           )}
 
-          <Button
-            variant="destructive"
-            onClick={() => toggleStatusMutation.mutate()}
-            disabled={toggleStatusMutation.isPending}
-            className="flex h-11 items-center gap-2 rounded-xl px-6"
-          >
-            <Ban className="h-4 w-4" />
-            <span>
-              {restaurant.status === "activate" ? "Sperren" : "Entsperren"}
-            </span>
-          </Button>
+          {isAdmin && (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditModalOpen(true)}
+                className="flex h-11 items-center gap-2 rounded-xl px-4 border-[#0097A7] text-[#0097A7] hover:bg-[#E0F7FA]"
+              >
+                <Pencil className="h-4 w-4" />
+                <span>Bearbeiten</span>
+              </Button>
+              {restaurant.approvalStatus !== "approved" && (
+                <Button
+                  onClick={() => approvalMutation.mutate({ status: "approved" })}
+                  disabled={approvalMutation.isPending}
+                >
+                  <Check className="mr-2 h-4 w-4" />
+                  <span>Genehmigen</span>
+                </Button>
+              )}
+              {restaurant.approvalStatus === "pending" && (
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    const reason = window.prompt("Ablehnungsgrund");
+                    if (reason)
+                      approvalMutation.mutate({
+                        status: "rejected",
+                        rejectionReason: reason,
+                      });
+                  }}
+                  disabled={approvalMutation.isPending}
+                >
+                  <X className="mr-2 h-4 w-4" />
+                  <span>Ablehnen</span>
+                </Button>
+              )}
+              {restaurant.approvalStatus === "approved" && (
+                <Button
+                  variant="destructive"
+                  onClick={() => toggleStatusMutation.mutate()}
+                  disabled={toggleStatusMutation.isPending}
+                  className="flex h-11 items-center gap-2 rounded-xl px-6"
+                >
+                  <Ban className="h-4 w-4" />
+                  <span>
+                    {restaurant.status === "activate" ? "Sperren" : "Entsperren"}
+                  </span>
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div className="py-8 text-center text-sm text-[#718096]">
@@ -251,6 +343,8 @@ export default function RestaurantDetailsPage({ params }: RestaurantDetailsPageP
               </div>
             )}
           </section>
+
+          {restaurant.approvalStatus === "approved" && <DishManager restaurant={restaurant} />}
         </>
       )}
     </div>
