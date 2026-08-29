@@ -13,7 +13,7 @@ function VerifyOtpContent() {
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
 
-  const [otp, setOtp] = useState(["", "", "", "", ""]);
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [isLoading, setIsLoading] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -23,15 +23,15 @@ function VerifyOtpContent() {
   }, []);
 
   const handleChange = (index: number, value: string) => {
-    if (!/^[0-9a-zA-Z]*$/.test(value)) return;
+    if (!/^[0-9a-fA-F]*$/.test(value)) return;
 
     const newOtp = [...otp];
     // Take the last character entered
-    newOtp[index] = value.slice(-1);
+    newOtp[index] = value.slice(-1).toUpperCase();
     setOtp(newOtp);
 
     // Auto-advance to next input
-    if (value && index < 4) {
+    if (value && index < otp.length - 1) {
       inputRefs.current[index + 1]?.focus();
     }
   };
@@ -44,13 +44,18 @@ function VerifyOtpContent() {
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
-    const pastedData = e.clipboardData.getData("text").trim().slice(0, 5);
+    const pastedData = e.clipboardData
+      .getData("text")
+      .trim()
+      .toUpperCase()
+      .replace(/[^0-9A-F]/g, "")
+      .slice(0, otp.length);
     const newOtp = [...otp];
     for (let i = 0; i < pastedData.length; i++) {
       newOtp[i] = pastedData[i];
     }
     setOtp(newOtp);
-    const nextIndex = Math.min(pastedData.length, 4);
+    const nextIndex = Math.min(pastedData.length, otp.length - 1);
     inputRefs.current[nextIndex]?.focus();
   };
 
@@ -58,8 +63,8 @@ function VerifyOtpContent() {
     e.preventDefault();
     const code = otp.join("");
 
-    if (code.length < 5) {
-      toast.error("Bitte geben Sie den vollständigen 5-stelligen Code ein.");
+    if (code.length < 6) {
+      toast.error("Bitte geben Sie den vollständigen 6-stelligen Code ein.");
       return;
     }
 
@@ -87,19 +92,22 @@ function VerifyOtpContent() {
       </p>
 
       <form onSubmit={handleSubmit} className="w-full space-y-6 text-center">
-        {/* 5 OTP input boxes matching design */}
-        <div className="flex items-center justify-center gap-3" onPaste={handlePaste}>
+        {/* Six responsive hexadecimal OTP cells (the API may send A-F). */}
+        <div className="grid w-full grid-cols-6 gap-2 sm:gap-3" onPaste={handlePaste}>
           {otp.map((digit, idx) => (
             <input
               key={idx}
               ref={(el) => { inputRefs.current[idx] = el; }}
               type="text"
+              inputMode="text"
+              autoCapitalize="characters"
+              autoComplete={idx === 0 ? "one-time-code" : "off"}
               maxLength={1}
               value={digit}
               onChange={(e) => handleChange(idx, e.target.value)}
               onKeyDown={(e) => handleKeyDown(idx, e)}
               disabled={isLoading}
-              className="w-12 h-14 text-center text-lg font-bold rounded-xl border border-[#90CAF9] bg-white text-[#1E1E1E] focus:outline-none focus:ring-2 focus:ring-[#0097A7] focus:border-transparent transition-all shadow-xs"
+              className="h-12 min-w-0 w-full text-center text-base sm:h-14 sm:text-lg font-bold uppercase rounded-xl border border-[#90CAF9] bg-white text-[#1E1E1E] focus:outline-none focus:ring-2 focus:ring-[#0097A7] focus:border-transparent transition-all shadow-xs"
             />
           ))}
         </div>

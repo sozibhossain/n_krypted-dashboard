@@ -9,7 +9,6 @@ import {
   ArrowLeft,
   Ban,
   Check,
-  CalendarDays,
   MapPin,
   MessageSquare,
   Pencil,
@@ -24,7 +23,7 @@ import { getApiErrorMessage, RestaurantPayload, restaurantApi, reviewApi } from 
 import { ReviewCard } from "@/components/dashboard/ReviewCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDate, formatPrice } from "@/lib/utils";
+import { formatPrice } from "@/lib/utils";
 import { DishManager } from "@/components/restaurants/DishManager";
 import { RestaurantForm } from "@/components/restaurants/RestaurantForm";
 import { Modal } from "@/components/ui/modal";
@@ -289,7 +288,7 @@ export default function RestaurantDetailsPage({ params }: RestaurantDetailsPageP
             )}
           </section>
 
-          <section className="grid gap-6 border-t border-[#F5F2E8] pt-4 lg:grid-cols-2">
+          <section className="space-y-4 border-t border-[#F5F2E8] pt-4">
             <div className="space-y-4">
               <h3 className="text-base font-bold text-[#1E1E1E]">Angebote</h3>
               {restaurant.offers.length === 0 ? (
@@ -300,21 +299,6 @@ export default function RestaurantDetailsPage({ params }: RestaurantDetailsPageP
                     <li key={`${offer}-${index}`} className="flex items-start gap-2 text-sm text-[#4A5568]">
                       <Utensils className="mt-0.5 h-4 w-4 shrink-0 text-[#0097A7]" />
                       <span>{offer}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <div className="space-y-4">
-              <h3 className="text-base font-bold text-[#1E1E1E]">Termine</h3>
-              {restaurant.scheduleDates.length === 0 ? (
-                <p className="text-sm text-[#718096]">Keine Termine vorhanden.</p>
-              ) : (
-                <ul className="space-y-2">
-                  {restaurant.scheduleDates.map((schedule, index) => (
-                    <li key={schedule._id ?? index} className="flex items-center gap-2 text-sm text-[#4A5568]">
-                      <CalendarDays className="h-4 w-4 text-[#0097A7]" />
-                      <span>{formatDate(schedule.date)}</span>
                     </li>
                   ))}
                 </ul>

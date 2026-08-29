@@ -25,8 +25,8 @@ export default function ForgotPasswordPage() {
     try {
       setIsLoading(true);
       await authApi.forgotPassword({ email });
-      toast.success("Verifizierungscode (OTP) wurde gesendet!");
-      router.push(`/verify-otp?email=${encodeURIComponent(email)}`);
+      toast.success("Wenn die E-Mail registriert ist, wurde ein Reset-Link gesendet.");
+      router.push("/signin");
     } catch (err: unknown) {
       toast.error(getApiErrorMessage(err, "Fehler beim Senden des Codes."));
     } finally {

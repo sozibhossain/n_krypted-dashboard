@@ -90,14 +90,6 @@ export interface CategoryItem {
   categoryName: string;
 }
 
-export interface ScheduleDateItem {
-  _id?: string;
-  date: string;
-  active?: boolean;
-  participationsLimit?: number;
-  bookedCount?: number;
-}
-
 export interface RestaurantItem {
   _id: string;
   title: string;
@@ -122,7 +114,6 @@ export interface RestaurantItem {
   rating: number;
   reviewCount: number;
   totalCheckIns: number;
-  scheduleDates: ScheduleDateItem[];
   createdAt?: string;
 }
 
@@ -187,6 +178,15 @@ export interface ReviewItem {
     images?: string[];
     location?: { country?: string; city?: string };
     category?: CategoryItem | string;
+    dishes?: DishItem[];
+  };
+  dishID?: string;
+  checkInID?: {
+    _id: string;
+    checkedInAt: string;
+    partySize: number;
+    distanceMeters: number;
+    status: "verified";
   };
   restaurantName?: string;
   restaurantLocation?: string;
@@ -201,16 +201,33 @@ export interface ReviewItem {
 
 export interface CheckInItem {
   _id: string;
+  userId?: {
+    _id: string;
+    name: string;
+    email: string;
+    avatar?: string;
+    phoneNumber?: string;
+  };
+  restaurantId?: {
+    _id: string;
+    title: string;
+    images?: string[];
+    location?: { address?: string; city?: string; country?: string };
+  };
   restaurantName?: string;
   restaurantLocation?: string;
   restaurantImage?: string;
-  scheduleDate?: string;
+  checkedInAt: string;
+  partySize: number;
+  distanceMeters: number;
+  status: "verified";
 }
 
 export interface DashboardStats {
   totalUsers: number;
   totalRestaurants: number;
   totalReviews: number;
+  totalCheckIns: number;
   activeRestaurantsPercent: number;
   userGrowthData: { month: string; users: number }[];
   restaurantWeeklyData: { day: string; active: number; total: number }[];
@@ -243,27 +260,7 @@ interface RawRestaurant extends Partial<RestaurantItem> {
   price: number;
 }
 
-type RawReview = Omit<
-  ReviewItem,
-  | "restaurantName"
-  | "restaurantLocation"
-  | "restaurantAvatar"
-  | "dishName"
-  | "dishImage"
-  | "mealCategory"
->;
-
-interface RawBooking {
-  _id: string;
-  isBooked?: boolean;
-  paymentStatus?: string;
-  scheduleDate?: string;
-  dealsId?: {
-    title?: string;
-    images?: string[];
-    location?: { country?: string; city?: string };
-  };
-}
+type RawReview = ReviewItem;
 
 const emptyMeta = (
   params: { page?: number; limit?: number } | undefined,
@@ -303,7 +300,6 @@ const mapRestaurant = (deal: RawRestaurant): RestaurantItem => ({
   rating: deal.rating ?? 0,
   reviewCount: deal.reviewCount ?? 0,
   totalCheckIns: deal.totalCheckIns ?? 0,
-  scheduleDates: deal.scheduleDates ?? [],
   createdAt: deal.createdAt,
 });
 
@@ -313,16 +309,18 @@ const mapReview = (review: RawReview): ReviewItem => {
     .filter(Boolean)
     .join(", ");
   const category = deal?.category;
+  const dish = deal?.dishes?.find((item) => item._id === review.dishID);
 
   return {
     ...review,
     restaurantName: deal?.title,
     restaurantLocation: location || undefined,
     restaurantAvatar: deal?.images?.[0],
-    dishName: deal?.title,
-    dishImage: deal?.images?.[0],
+    dishName: review.dishName,
+    dishImage: dish?.image || deal?.images?.[0],
     mealCategory:
-      typeof category === "object" ? category.categoryName : undefined,
+      dish?.category ||
+      (typeof category === "object" ? category.categoryName : undefined),
   };
 };
 
@@ -386,17 +384,14 @@ export const userApi = {
     };
   },
   getUserById: async (id: string): Promise<UserItem> => {
-    const [userResponse, bookingsResponse, reviewsResponse] = await Promise.all([
+    const [userResponse, checkInsResponse, reviewsResponse] = await Promise.all([
       api.get(`/auth/single-user/${id}`),
-      api.get("/bookings/notify-false", { params: { user: id } }),
+      api.get(`/check-ins/user/${id}`, { params: { page: 1, limit: 1 } }),
       api.get("/reviews", { params: { userId: id, page: 1, limit: 1 } }),
     ]);
-    const bookings: RawBooking[] = bookingsResponse.data?.data ?? [];
     return mapUser({
       ...userResponse.data.data,
-      checkInCount: bookings.filter(
-        (booking) => booking.isBooked && booking.paymentStatus === "complete"
-      ).length,
+      checkInCount: checkInsResponse.data?.meta?.totalItems ?? 0,
       reviewCount: reviewsResponse.data?.meta?.totalItems ?? 0,
     });
   },
@@ -432,31 +427,47 @@ export const restaurantOwnerApi = {
     (await api.put(`/auth/restaurant-owners/${id}`, data)).data.data,
 };
 
-export const bookingApi = {
-  getUserCheckIns: async (userId: string): Promise<CheckInItem[]> => {
-    const response = await api.get("/bookings/notify-false", {
-      params: { user: userId },
+const mapCheckIn = (checkIn: CheckInItem): CheckInItem => {
+  const restaurant = checkIn.restaurantId;
+  const location = [
+    restaurant?.location?.address,
+    restaurant?.location?.city,
+    restaurant?.location?.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+  return {
+    ...checkIn,
+    restaurantName: restaurant?.title,
+    restaurantLocation: location || undefined,
+    restaurantImage: restaurant?.images?.[0],
+  };
+};
+
+export const checkInApi = {
+  getAll: async (
+    role: "admin" | "restaurant_owner",
+    params?: { page?: number; limit?: number; restaurantId?: string; from?: string; to?: string }
+  ): Promise<{
+    data: CheckInItem[];
+    meta: MetaPagination;
+    stats: { total: number; today: number };
+  }> => {
+    const endpoint = role === "restaurant_owner" ? "/check-ins/owner" : "/check-ins/admin";
+    const response = await api.get(endpoint, { params });
+    const checkIns: CheckInItem[] = response.data?.data ?? [];
+    return {
+      data: checkIns.map(mapCheckIn),
+      meta: response.data?.meta ?? emptyMeta(params, checkIns.length),
+      stats: response.data?.stats ?? { total: checkIns.length, today: 0 },
+    };
+  },
+  getForUser: async (userId: string): Promise<CheckInItem[]> => {
+    const response = await api.get(`/check-ins/user/${userId}`, {
+      params: { page: 1, limit: 100 },
     });
-    const bookings: RawBooking[] = response.data?.data ?? [];
-    return bookings
-      .filter(
-        (booking) => booking.isBooked && booking.paymentStatus === "complete"
-      )
-      .map((booking) => {
-        const location = [
-          booking.dealsId?.location?.city,
-          booking.dealsId?.location?.country,
-        ]
-          .filter(Boolean)
-          .join(", ");
-        return {
-          _id: booking._id,
-          restaurantName: booking.dealsId?.title,
-          restaurantLocation: location || undefined,
-          restaurantImage: booking.dealsId?.images?.[0],
-          scheduleDate: booking.scheduleDate,
-        };
-      });
+    const checkIns: CheckInItem[] = response.data?.data ?? [];
+    return checkIns.map(mapCheckIn);
   },
 };
 
@@ -550,6 +561,16 @@ export const reviewApi = {
   },
   getReviewsByDeal: async (dealId: string) =>
     reviewApi.getAllReviews({ dealId }),
+  updateReview: async (
+    id: string,
+    data: { reviewComment: string; ratings: number }
+  ): Promise<ReviewItem> => {
+    const response = await api.put(`/reviews/${id}`, data);
+    return mapReview(response.data.review);
+  },
+  deleteReview: async (id: string): Promise<void> => {
+    await api.delete(`/reviews/${id}`);
+  },
   bulkDeleteReviews: async (ids: string[]): Promise<BulkDeleteResponse> =>
     (await api.delete("/reviews/bulk", { data: { ids } })).data,
 };
@@ -564,6 +585,7 @@ export const statsApi = {
       totalUsers: stats.totalCustomers ?? 0,
       totalRestaurants,
       totalReviews: stats.totalReviews ?? 0,
+      totalCheckIns: stats.totalCheckIns ?? 0,
       activeRestaurantsPercent:
         totalRestaurants > 0
           ? Math.round((activeRestaurants / totalRestaurants) * 100)

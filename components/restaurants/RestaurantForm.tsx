@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { AdminRestaurantPayload, RestaurantItem, RestaurantPayload } from "@/lib/api";
 import { Button } from "@/components/ui/button";
@@ -40,36 +40,6 @@ export function RestaurantForm({
   const [ownerEmail, setOwnerEmail] = useState("");
   const [ownerPassword, setOwnerPassword] = useState("");
   const [ownerPhone, setOwnerPhone] = useState("");
-
-  useEffect(() => {
-    if (restaurant) {
-      setTitle(restaurant.title || "");
-      setDescription(restaurant.description || "");
-      setShortDescription(restaurant.shortDescription || "");
-      setPrice(restaurant.price?.toString() || "0");
-      setImage(restaurant.images?.[0] || "");
-      setAddress(restaurant.location?.address || "");
-      setCity(restaurant.location?.city || "");
-      setCountry(restaurant.location?.country || "");
-      setLatitude(restaurant.location?.latitude ?? 51.1657);
-      setLongitude(restaurant.location?.longitude ?? 10.4515);
-    } else {
-      setTitle("");
-      setDescription("");
-      setShortDescription("");
-      setPrice("0");
-      setImage("");
-      setAddress("");
-      setCity("");
-      setCountry("");
-      setLatitude(51.1657);
-      setLongitude(10.4515);
-      setOwnerName("");
-      setOwnerEmail("");
-      setOwnerPassword("");
-      setOwnerPhone("");
-    }
-  }, [restaurant]);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();

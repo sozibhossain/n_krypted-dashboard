@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
-import { Users, UtensilsCrossed, ThumbsUp, Utensils } from "lucide-react";
+import { Users, UtensilsCrossed, ThumbsUp, Utensils, MapPinned } from "lucide-react";
 import { statsApi, reviewApi } from "@/lib/api";
 import { StatCard } from "@/components/dashboard/StatCard";
 import { UserGrowthChart } from "@/components/dashboard/UserGrowthChart";
@@ -25,10 +25,10 @@ export default function DashboardOverviewPage() {
 
   return (
     <div className="space-y-6">
-      {/* 4 Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         {statsLoading ? (
           <>
+            <Skeleton className="h-28 rounded-2xl bg-white" />
             <Skeleton className="h-28 rounded-2xl bg-white" />
             <Skeleton className="h-28 rounded-2xl bg-white" />
             <Skeleton className="h-28 rounded-2xl bg-white" />
@@ -50,6 +50,11 @@ export default function DashboardOverviewPage() {
               title="Gesamtbewertungen"
               value={(stats?.totalReviews ?? 0).toString()}
               icon={ThumbsUp}
+            />
+            <StatCard
+              title="Verifizierte Check-ins"
+              value={formatNumber(stats?.totalCheckIns ?? 0)}
+              icon={MapPinned}
             />
             <StatCard
               title="Aktive Restaurants"

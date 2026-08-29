@@ -8,6 +8,8 @@ export default withAuth(
     if (
       role === "restaurant_owner" &&
       !pathname.startsWith("/restaurants") &&
+      !pathname.startsWith("/check-ins") &&
+      !pathname.startsWith("/reviews") &&
       !pathname.startsWith("/settings")
     ) {
       return NextResponse.redirect(new URL("/restaurants", req.url));

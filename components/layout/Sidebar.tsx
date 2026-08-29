@@ -10,6 +10,8 @@ import {
   UtensilsCrossed,
   Settings,
   LogOut,
+  MapPinned,
+  MessageSquareText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +35,18 @@ const navigation = [
     pattern: /^\/restaurants/,
   },
   {
+    name: "Check-ins",
+    href: "/check-ins",
+    icon: MapPinned,
+    pattern: /^\/check-ins/,
+  },
+  {
+    name: "Bewertungen",
+    href: "/reviews",
+    icon: MessageSquareText,
+    pattern: /^\/reviews/,
+  },
+  {
     name: "Einstellungen",
     href: "/settings",
     icon: Settings,
@@ -51,7 +65,11 @@ export function Sidebar({ onNavClick, className }: SidebarProps) {
   const visibleNavigation =
     session?.user?.role === "restaurant_owner"
       ? navigation.filter(
-          (item) => item.href === "/restaurants" || item.href === "/settings"
+          (item) =>
+            item.href === "/restaurants" ||
+            item.href === "/check-ins" ||
+            item.href === "/reviews" ||
+            item.href === "/settings"
         )
       : navigation;
 

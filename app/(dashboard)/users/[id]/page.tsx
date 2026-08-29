@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, MapPin, Phone, User, Utensils } from "lucide-react";
-import { bookingApi, reviewApi, userApi } from "@/lib/api";
+import { checkInApi, reviewApi, userApi } from "@/lib/api";
 import { ReviewCard } from "@/components/dashboard/ReviewCard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/lib/utils";
@@ -22,7 +22,7 @@ export default function UserDetailsPage({ params }: UserDetailsPageProps) {
   });
   const { data: checkIns = [], isLoading: checkInsLoading } = useQuery({
     queryKey: ["user-check-ins", id],
-    queryFn: () => bookingApi.getUserCheckIns(id),
+    queryFn: () => checkInApi.getForUser(id),
   });
   const { data: reviewsData, isLoading: reviewsLoading } = useQuery({
     queryKey: ["user-reviews", id],
@@ -135,7 +135,7 @@ export default function UserDetailsPage({ params }: UserDetailsPageProps) {
                   </div>
                 </div>
                 <span className="shrink-0 text-[11px] font-medium text-[#718096]">
-                  {formatDate(item.scheduleDate)}
+                  {formatDate(item.checkedInAt)}
                 </span>
               </div>
             ))}

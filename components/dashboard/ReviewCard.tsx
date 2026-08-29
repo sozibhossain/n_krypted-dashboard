@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { Calendar, Clock, MapPin, Star, User, Utensils } from "lucide-react";
+import { Calendar, Clock, MapPin, Star, User, Users, Utensils } from "lucide-react";
 import { ReviewItem } from "@/lib/api";
 import { formatDate, formatTime } from "@/lib/utils";
 
@@ -81,16 +81,22 @@ export function ReviewCard({ review }: ReviewCardProps) {
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 text-xs text-[#0097A7]">
             <div className="flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5" />
-              <span>{formatDate(review.createdAt)}</span>
+              <span>{formatDate(review.checkInID?.checkedInAt ?? review.createdAt)}</span>
             </div>
             <div className="flex items-center gap-1.5">
               <Clock className="h-3.5 w-3.5" />
-              <span>{formatTime(review.createdAt)}</span>
+              <span>{formatTime(review.checkInID?.checkedInAt ?? review.createdAt)}</span>
             </div>
-            {review.mealCategory && (
+            {review.dishName && (
               <div className="flex items-center gap-1.5">
                 <Utensils className="h-3.5 w-3.5" />
-                <span>{review.mealCategory}</span>
+                <span>{review.dishName}</span>
+              </div>
+            )}
+            {review.checkInID && (
+              <div className="flex items-center gap-1.5">
+                <Users className="h-3.5 w-3.5" />
+                <span>{review.checkInID.partySize} Personen</span>
               </div>
             )}
           </div>

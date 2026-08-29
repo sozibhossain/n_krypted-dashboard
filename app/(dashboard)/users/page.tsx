@@ -11,12 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Pagination } from "@/components/ui/pagination";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 
 export default function UserManagementPage() {
   const queryClient = useQueryClient();
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ["users", currentPage, searchQuery],
@@ -35,6 +37,7 @@ export default function UserManagementPage() {
   const bulkDeleteMutation = useMutation({
     mutationFn: (ids: string[]) => userApi.bulkDeleteUsers(ids),
     onSuccess: (result) => {
+      setIsDeleteModalOpen(false);
       setSelectedIds(new Set());
       setCurrentPage(1);
       toast.success(`${result.deletedCount} Benutzer wurden gel\u00f6scht.`);
@@ -66,15 +69,7 @@ export default function UserManagementPage() {
   };
 
   const handleBulkDelete = () => {
-    const ids = [...selectedIds];
-    if (
-      ids.length > 0 &&
-      window.confirm(
-        `${ids.length} ausgew\u00e4hlte Benutzer dauerhaft l\u00f6schen? Diese Aktion kann nicht r\u00fcckg\u00e4ngig gemacht werden.`
-      )
-    ) {
-      bulkDeleteMutation.mutate(ids);
-    }
+    if (selectedIds.size > 0) setIsDeleteModalOpen(true);
   };
 
   return (
@@ -280,6 +275,43 @@ export default function UserManagementPage() {
           className="mt-2"
         />
       )}
+
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          if (!bulkDeleteMutation.isPending) setIsDeleteModalOpen(false);
+        }}
+        title="Benutzer löschen?"
+        description="Diese Aktion kann nicht rückgängig gemacht werden."
+        maxWidth="max-w-md"
+      >
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm leading-relaxed text-red-800">
+            Möchten Sie {selectedIds.size} ausgewählte
+            {selectedIds.size === 1 ? "n Benutzer" : " Benutzer"} dauerhaft löschen?
+            Zugehörige Check-ins und Bewertungen werden ebenfalls entfernt.
+          </div>
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setIsDeleteModalOpen(false)}
+              disabled={bulkDeleteMutation.isPending}
+              className="h-11 rounded-xl border border-[#E2E8F0] px-5 text-sm font-semibold text-[#4A5568] hover:bg-gray-50 disabled:opacity-50"
+            >
+              Abbrechen
+            </button>
+            <button
+              type="button"
+              onClick={() => bulkDeleteMutation.mutate([...selectedIds])}
+              disabled={bulkDeleteMutation.isPending || selectedIds.size === 0}
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-red-600 px-5 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              {bulkDeleteMutation.isPending ? "Wird gelöscht..." : "Dauerhaft löschen"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
