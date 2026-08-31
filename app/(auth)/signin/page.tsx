@@ -37,8 +37,7 @@ export default function SignInPage() {
         toast.error(res.error || "Anmeldung fehlgeschlagen. Bitte überprüfen Sie Ihre Daten.");
       } else {
         toast.success("Erfolgreich angemeldet!");
-        router.push("/");
-        router.refresh();
+        router.replace("/");
       }
     } catch {
       toast.error("Ein unerwarteter Fehler ist aufgetreten.");

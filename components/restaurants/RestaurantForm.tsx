@@ -85,7 +85,14 @@ export function RestaurantForm({
           </label>
         </fieldset>
       )}
-      <div className="grid gap-4 sm:grid-cols-2">
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-sm font-bold text-[#1E1E1E]">Restaurantdaten</h3>
+          <p className="mt-1 text-xs text-[#718096]">
+            Name, Preis, Beschreibung und Vorschaubild des Restaurants bearbeiten.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
         <label className={labelClass}>
           <span>Restaurantname</span>
           <Input required placeholder="z. B. Sonnengarten Restaurant" value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -106,9 +113,15 @@ export function RestaurantForm({
           <span>Bild-URL</span>
           <Input type="url" value={image} onChange={(e) => setImage(e.target.value)} placeholder="https://images.unsplash.com/..." />
         </label>
-      </div>
+        </div>
+      </section>
       <div className="space-y-4">
-        <h3 className="text-sm font-bold text-[#1E1E1E]">Restaurantstandort</h3>
+        <div>
+          <h3 className="text-sm font-bold text-[#1E1E1E]">Restaurantstandort</h3>
+          <p className="mt-1 text-xs text-[#718096]">
+            Die Markierung bestimmt, wo das Restaurant in der App angezeigt und für Check-ins gefunden wird.
+          </p>
+        </div>
         <LocationPickerMap
           value={{ latitude, longitude, address, city, country }}
           onChange={(location) => {
@@ -134,7 +147,7 @@ export function RestaurantForm({
           </label>
         </div>
       </div>
-      <div className="flex justify-end gap-3">
+      <div className="sticky bottom-0 -mx-6 -mb-6 flex justify-end gap-3 border-t border-[#F0ECE1] bg-white/95 px-6 py-4 backdrop-blur-sm sm:-mx-8 sm:-mb-8 sm:px-8">
         {onCancel && (
           <Button type="button" variant="outline" onClick={onCancel}>
             <span>Abbrechen</span>

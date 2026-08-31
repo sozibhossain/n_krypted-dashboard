@@ -6,5 +6,5 @@ interface DishDetailsPageProps {
 
 export default async function DishDetailsPage({ params }: DishDetailsPageProps) {
   const { id } = await params;
-  redirect(`/restaurants/${id}`);
+  redirect(`/restaurants/${id}/dishes`);
 }

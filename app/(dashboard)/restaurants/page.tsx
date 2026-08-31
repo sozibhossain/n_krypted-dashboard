@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Ban, Check, Eye, Pencil, Plus, Search, Trash2, Utensils, X } from "lucide-react";
+import { Ban, Check, ChefHat, Eye, Pencil, Plus, Search, Trash2, Utensils, X } from "lucide-react";
 import { toast } from "sonner";
 import {
   AdminRestaurantPayload,
@@ -157,10 +157,10 @@ export default function RestaurantManagementPage() {
           setIsModalOpen(false);
           setEditingRestaurant(null);
         }}
-        title={editingRestaurant ? "Restaurant bearbeiten" : "Restaurant direkt erstellen"}
+        title={editingRestaurant ? "Restaurantdaten und Standort bearbeiten" : "Restaurant direkt erstellen"}
         description={
           editingRestaurant
-            ? `Details und Standort für "${editingRestaurant.title}" anpassen.`
+            ? `Stammdaten, Vorschaubild und Kartenposition für "${editingRestaurant.title}" anpassen. Signature Dishes werden separat verwaltet.`
             : "Erstellt gleichzeitig den Login für den Restaurantbesitzer und genehmigt das Restaurant."
         }
         maxWidth="max-w-4xl"
@@ -188,14 +188,14 @@ export default function RestaurantManagementPage() {
       </Modal>
 
       <section className="rounded-3xl border border-[#F0ECE1] bg-white p-6 shadow-xs sm:p-8">
-        <div className="mb-6 flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="mb-6 flex flex-col justify-between gap-4 lg:flex-row lg:items-center">
           <div>
             <h2 className="text-xl font-bold text-[#1E1E1E]">Alle Restaurants</h2>
             <p className="mt-0.5 text-xs text-[#718096] sm:text-sm">
               Alle Restaurants anzeigen, erstellen und verwalten.
             </p>
           </div>
-          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+          <div className="flex w-full flex-col gap-2 sm:flex-row lg:w-auto lg:items-center">
             <Button
               type="button"
               size="sm"
@@ -224,7 +224,7 @@ export default function RestaurantManagementPage() {
                 </span>
               </button>
             )}
-            <div className="relative w-full sm:w-64">
+            <div className="relative w-full sm:min-w-64 sm:flex-1 lg:w-64 lg:flex-none">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
               <Input
                 type="text"
@@ -242,11 +242,11 @@ export default function RestaurantManagementPage() {
         </div>
 
         <div className="overflow-x-auto rounded-2xl border border-[#F0ECE1]">
-          <table className="w-full border-collapse text-left">
+          <table className="w-full min-w-[1120px] table-fixed border-collapse text-left">
             <thead>
               <tr className="border-b border-[#F0ECE1] bg-[#FFFBE9] text-xs font-semibold text-[#1E1E1E]">
                 {isAdmin && (
-                  <th className="py-4 pl-5 pr-2">
+                  <th className="w-12 py-4 pl-5 pr-2">
                     <input
                       type="checkbox"
                       checked={allSelected}
@@ -257,19 +257,20 @@ export default function RestaurantManagementPage() {
                     />
                   </th>
                 )}
-                <th className="px-5 py-4">Name des Restaurants</th>
-                <th className="px-5 py-4">Standort</th>
-                <th className="px-5 py-4">Bewertung</th>
-                <th className="px-5 py-4">Rezension</th>
-                <th className="px-5 py-4">Genehmigung</th>
-                <th className="px-5 py-4 text-center">Aktion</th>
+                <th className="w-64 px-5 py-4">Name des Restaurants</th>
+                <th className="w-48 px-5 py-4">Standort</th>
+                <th className="w-24 px-4 py-4 text-center">Bewertung</th>
+                <th className="w-24 px-4 py-4 text-center">Rezension</th>
+                <th className="w-32 px-4 py-4 text-center">Signature Dishes</th>
+                <th className="w-32 px-4 py-4 text-center">Genehmigung</th>
+                <th className="w-56 py-4 pl-4 pr-6 text-right">Aktion</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F5F2E8] text-xs sm:text-sm">
               {isLoading ? (
                 Array.from({ length: 8 }).map((_, index) => (
                   <tr key={index}>
-                    {Array.from({ length: isAdmin ? 7 : 6 }).map((__, cell) => (
+                    {Array.from({ length: isAdmin ? 8 : 7 }).map((__, cell) => (
                       <td key={cell} className="px-5 py-3.5">
                         <Skeleton className="h-4 w-20" />
                       </td>
@@ -278,13 +279,16 @@ export default function RestaurantManagementPage() {
                 ))
               ) : data?.data.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 7 : 6} className="py-12 text-center text-gray-500">
+                  <td colSpan={isAdmin ? 8 : 7} className="py-12 text-center text-gray-500">
                     Keine Restaurants gefunden.
                   </td>
                 </tr>
               ) : (
                 data?.data.map((restaurant) => {
                   const isActivated = restaurant.status === "activate";
+                  const signatureDishCount = restaurant.dishes.filter(
+                    (dish) => dish.isSignatureDish
+                  ).length;
                   const location = [
                     restaurant.location?.city,
                     restaurant.location?.country,
@@ -305,7 +309,7 @@ export default function RestaurantManagementPage() {
                         </td>
                       )}
                       <td className="px-5 py-3.5 font-medium text-[#1E1E1E]">
-                        <div className="flex items-center gap-3">
+                        <div className="flex min-w-0 items-center gap-3">
                           <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gray-100">
                             {restaurant.images[0] ? (
                               <Image
@@ -319,17 +323,27 @@ export default function RestaurantManagementPage() {
                               <Utensils className="h-4 w-4 text-gray-400" />
                             )}
                           </div>
-                          <span>{restaurant.title}</span>
+                          <span className="truncate">{restaurant.title}</span>
                         </div>
                       </td>
-                      <td className="px-5 py-3.5 text-[#718096]">{location || "—"}</td>
-                      <td className="px-5 py-3.5 font-medium text-[#1E1E1E]">
+                      <td className="truncate px-5 py-3.5 text-[#718096]" title={location || undefined}>{location || "—"}</td>
+                      <td className="px-4 py-3.5 text-center font-medium text-[#1E1E1E]">
                         {restaurant.rating.toFixed(1).replace(".", ",")}
                       </td>
-                      <td className="px-5 py-3.5 font-medium text-[#1E1E1E]">
+                      <td className="px-4 py-3.5 text-center font-medium text-[#1E1E1E]">
                         {restaurant.reviewCount}
                       </td>
-                      <td className="px-5 py-3.5">
+                      <td className="px-4 py-3.5 text-center">
+                        <Link
+                          href={`/restaurants/${restaurant._id}/dishes`}
+                          className="inline-flex items-center justify-center gap-1.5 rounded-lg px-2 py-1 font-semibold text-[#0097A7] hover:bg-[#E0F7FA]"
+                          title="Signature Dishes verwalten"
+                        >
+                          <ChefHat className="h-4 w-4" />
+                          <span>{signatureDishCount}/{restaurant.dishes.length}</span>
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3.5 text-center">
                         <Badge variant={restaurant.approvalStatus === "approved" ? "active" : "inactive"}>
                           {restaurant.approvalStatus === "approved"
                             ? "Genehmigt"
@@ -338,72 +352,77 @@ export default function RestaurantManagementPage() {
                             : "Ausstehend"}
                         </Badge>
                       </td>
-                      <td className="px-5 py-3.5 text-center">
-                        <div className="flex items-center justify-center gap-2.5">
+                      <td className="py-3.5 pl-4 pr-5">
+                        <div className="ml-auto grid w-44 grid-cols-5 items-center justify-items-center gap-1">
+                          {isAdmin && restaurant.approvalStatus !== "approved" && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                approvalMutation.mutate({ id: restaurant._id, status: "approved" })
+                              }
+                              disabled={approvalMutation.isPending}
+                              className="col-start-1 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-emerald-600 transition-colors hover:bg-emerald-50 hover:text-emerald-800"
+                              title="Genehmigen"
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                          )}
+                          {isAdmin && restaurant.approvalStatus === "pending" && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const reason = window.prompt("Ablehnungsgrund");
+                                if (reason)
+                                  approvalMutation.mutate({
+                                    id: restaurant._id,
+                                    status: "rejected",
+                                    reason,
+                                  });
+                              }}
+                              disabled={approvalMutation.isPending}
+                              className="col-start-2 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
+                              title="Ablehnen"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          )}
+                          {isAdmin && restaurant.approvalStatus === "approved" && (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleStatus(restaurant)}
+                              disabled={toggleStatusMutation.isPending}
+                              className="col-start-1 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[#EF4444] transition-colors hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                              title={isActivated ? "Deaktivieren" : "Aktivieren"}
+                            >
+                              <Ban className="h-4 w-4" />
+                            </button>
+                          )}
                           <Link
                             href={`/restaurants/${restaurant._id}`}
-                            className="cursor-pointer rounded-md p-1.5 text-[#0097A7] transition-colors hover:bg-[#E0F7FA] hover:text-[#00838F]"
+                            className="col-start-3 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[#0097A7] transition-colors hover:bg-[#E0F7FA] hover:text-[#00838F]"
                             title="Details anzeigen"
                           >
                             <Eye className="h-4 w-4" />
                           </Link>
+                          <Link
+                            href={`/restaurants/${restaurant._id}/dishes`}
+                            className="col-start-4 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[#0097A7] transition-colors hover:bg-[#E0F7FA] hover:text-[#00838F]"
+                            title="Signature Dishes verwalten"
+                          >
+                            <ChefHat className="h-4 w-4" />
+                          </Link>
                           {isAdmin && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingRestaurant(restaurant);
-                                  setIsModalOpen(true);
-                                }}
-                                className="cursor-pointer rounded-md p-1.5 text-[#0097A7] transition-colors hover:bg-[#E0F7FA] hover:text-[#00838F]"
-                                title="Restaurant bearbeiten"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </button>
-                              {restaurant.approvalStatus !== "approved" && (
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    approvalMutation.mutate({ id: restaurant._id, status: "approved" })
-                                  }
-                                  disabled={approvalMutation.isPending}
-                                  className="cursor-pointer rounded-md p-1.5 text-emerald-600 transition-colors hover:bg-emerald-50 hover:text-emerald-800"
-                                  title="Genehmigen"
-                                >
-                                  <Check className="h-4 w-4" />
-                                </button>
-                              )}
-                              {restaurant.approvalStatus === "pending" && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const reason = window.prompt("Ablehnungsgrund");
-                                    if (reason)
-                                      approvalMutation.mutate({
-                                        id: restaurant._id,
-                                        status: "rejected",
-                                        reason,
-                                      });
-                                  }}
-                                  disabled={approvalMutation.isPending}
-                                  className="cursor-pointer rounded-md p-1.5 text-red-500 transition-colors hover:bg-red-50 hover:text-red-700"
-                                  title="Ablehnen"
-                                >
-                                  <X className="h-4 w-4" />
-                                </button>
-                              )}
-                              {restaurant.approvalStatus === "approved" && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleStatus(restaurant)}
-                                  disabled={toggleStatusMutation.isPending}
-                                  className="cursor-pointer rounded-md p-1.5 text-[#EF4444] transition-colors hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
-                                  title={isActivated ? "Deaktivieren" : "Aktivieren"}
-                                >
-                                  <Ban className="h-4 w-4" />
-                                </button>
-                              )}
-                            </>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingRestaurant(restaurant);
+                                setIsModalOpen(true);
+                              }}
+                              className="col-start-5 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-md text-[#0097A7] transition-colors hover:bg-[#E0F7FA] hover:text-[#00838F]"
+                              title="Restaurant bearbeiten"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
                           )}
                         </div>
                       </td>

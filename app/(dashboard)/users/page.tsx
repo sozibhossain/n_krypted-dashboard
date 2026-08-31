@@ -137,7 +137,7 @@ export default function UserManagementPage() {
               <th className="py-4 px-5">Einchecken</th>
               <th className="py-4 px-5">Rezension</th>
               <th className="py-4 px-5">Status</th>
-              <th className="py-4 px-5 text-center">Aktion</th>
+              <th className="py-4 pl-5 pr-6 text-right">Aktion</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[#F5F2E8] text-xs sm:text-sm">
@@ -165,8 +165,8 @@ export default function UserManagementPage() {
                   <td className="py-3.5 px-5">
                     <Skeleton className="w-16 h-6 rounded-full" />
                   </td>
-                  <td className="py-3.5 px-5">
-                    <div className="flex items-center justify-center gap-3">
+                  <td className="py-3.5 pl-5 pr-6">
+                    <div className="flex items-center justify-end gap-3">
                       <Skeleton className="w-5 h-5 rounded-md" />
                       <Skeleton className="w-5 h-5 rounded-md" />
                     </div>
@@ -243,8 +243,8 @@ export default function UserManagementPage() {
                   </td>
 
                   {/* Actions */}
-                  <td className="py-3.5 px-5 text-center">
-                    <div className="flex items-center justify-center gap-3">
+                  <td className="py-3.5 pl-5 pr-6">
+                    <div className="flex items-center justify-end gap-3">
                       <Link
                         href={`/users/${user._id}`}
                         className="text-[#0097A7] hover:text-[#00838F] p-1 rounded-md transition-colors"

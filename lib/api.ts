@@ -11,6 +11,33 @@ export const api = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+const SESSION_TOKEN_CACHE_MS = 60 * 1000;
+let cachedSessionToken: { value?: string; expiresAt: number } | null = null;
+let pendingSessionToken: Promise<string | undefined> | null = null;
+
+async function getSessionToken(): Promise<string | undefined> {
+  if (cachedSessionToken && cachedSessionToken.expiresAt > Date.now()) {
+    return cachedSessionToken.value;
+  }
+
+  if (!pendingSessionToken) {
+    pendingSessionToken = getSession()
+      .then((session) => {
+        const value = session?.accessToken;
+        cachedSessionToken = {
+          value,
+          expiresAt: Date.now() + SESSION_TOKEN_CACHE_MS,
+        };
+        return value;
+      })
+      .finally(() => {
+        pendingSessionToken = null;
+      });
+  }
+
+  return pendingSessionToken;
+}
+
 export function getApiErrorMessage(error: unknown, fallback: string): string {
   if (axios.isAxiosError<{ message?: string }>(error)) {
     return error.response?.data?.message ?? fallback;
@@ -22,9 +49,9 @@ api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     if (typeof window !== "undefined") {
       try {
-        const session = await getSession();
-        if (session?.accessToken) {
-          config.headers.Authorization = `Bearer ${session.accessToken}`;
+        const sessionToken = await getSessionToken();
+        if (sessionToken) {
+          config.headers.Authorization = `Bearer ${sessionToken}`;
           return config;
         }
       } catch {
@@ -41,7 +68,10 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => Promise.reject(error)
+  (error: AxiosError) => {
+    if (error.response?.status === 401) cachedSessionToken = null;
+    return Promise.reject(error);
+  }
 );
 
 export interface UserItem {
@@ -159,6 +189,7 @@ export interface DishPayload {
   description?: string;
   price: number;
   image?: string;
+  imageFile?: File;
   category?: string;
   isSignatureDish?: boolean;
   isActive?: boolean;
@@ -471,6 +502,21 @@ export const checkInApi = {
   },
 };
 
+const createDishFormData = (data: DishPayload): FormData => {
+  const formData = new FormData();
+  formData.append("name", data.name);
+  formData.append("price", String(data.price));
+  formData.append("description", data.description ?? "");
+  formData.append("category", data.category ?? "");
+  formData.append("isSignatureDish", String(Boolean(data.isSignatureDish)));
+  formData.append("isActive", String(data.isActive ?? true));
+
+  if (data.imageFile) formData.append("image", data.imageFile);
+  else if (data.image) formData.append("existingImage", data.image);
+
+  return formData;
+};
+
 export const restaurantApi = {
   getAllRestaurants: async (params?: {
     page?: number;
@@ -528,11 +574,17 @@ export const restaurantApi = {
     return mapRestaurant(response.data.restaurant);
   },
   addDish: async (id: string, data: DishPayload): Promise<RestaurantItem> => {
-    const response = await api.post(`/restaurants/${id}/dishes`, data);
+    const formData = createDishFormData(data);
+    const response = await api.post(`/restaurants/${id}/dishes`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return mapRestaurant(response.data.restaurant);
   },
   updateDish: async (id: string, dishId: string, data: DishPayload): Promise<RestaurantItem> => {
-    const response = await api.put(`/restaurants/${id}/dishes/${dishId}`, data);
+    const formData = createDishFormData(data);
+    const response = await api.put(`/restaurants/${id}/dishes/${dishId}`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
     return mapRestaurant(response.data.restaurant);
   },
   deleteDish: async (id: string, dishId: string): Promise<RestaurantItem> => {

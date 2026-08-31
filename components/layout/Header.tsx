@@ -2,8 +2,8 @@
 
 import { usePathname } from "next/navigation";
 import Image from "next/image";
+import { useSession } from "next-auth/react";
 import { Menu, User as UserIcon } from "lucide-react";
-import { useCurrentUser } from "@/hooks/useCurrentUser";
 
 interface HeaderProps {
   onOpenMobileMenu?: () => void;
@@ -11,12 +11,13 @@ interface HeaderProps {
 
 export function Header({ onOpenMobileMenu }: HeaderProps) {
   const pathname = usePathname();
-  const { user } = useCurrentUser();
+  const { data: session } = useSession();
+  const user = session?.user;
 
   const getPageTitle = () => {
     if (pathname === "/") return "Dashboard-Übersicht";
     if (pathname.startsWith("/users")) return "Benutzerverwaltung";
-    if (pathname.startsWith("/restaurants")) return "Restaurantmanagement";
+    if (pathname.startsWith("/restaurants")) return "Restaurant Management";
     if (pathname.startsWith("/reviews")) return "Top-Bewertungen";
     if (pathname.startsWith("/settings")) return "Einstellungen";
     return "Dashboard";

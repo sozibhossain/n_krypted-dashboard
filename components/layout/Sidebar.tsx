@@ -29,7 +29,7 @@ const navigation = [
     pattern: /^\/users/,
   },
   {
-    name: "Restaurantmanagement",
+    name: "Restaurant Management",
     href: "/restaurants",
     icon: UtensilsCrossed,
     pattern: /^\/restaurants/,

@@ -9,6 +9,7 @@ import {
   ArrowLeft,
   Ban,
   Check,
+  ChefHat,
   MapPin,
   MessageSquare,
   Pencil,
@@ -24,7 +25,6 @@ import { ReviewCard } from "@/components/dashboard/ReviewCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatPrice } from "@/lib/utils";
-import { DishManager } from "@/components/restaurants/DishManager";
 import { RestaurantForm } from "@/components/restaurants/RestaurantForm";
 import { Modal } from "@/components/ui/modal";
 
@@ -93,8 +93,8 @@ export default function RestaurantDetailsPage({ params }: RestaurantDetailsPageP
         <Modal
           isOpen={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
-          title="Restaurant bearbeiten"
-          description={`Details und Standort für "${restaurant.title}" anpassen.`}
+          title="Restaurantdaten und Standort bearbeiten"
+          description={`Stammdaten, Vorschaubild und Kartenposition für "${restaurant.title}" anpassen. Signature Dishes werden separat verwaltet.`}
           maxWidth="max-w-4xl"
         >
           <RestaurantForm
@@ -113,7 +113,7 @@ export default function RestaurantDetailsPage({ params }: RestaurantDetailsPageP
         className="inline-flex items-center gap-2 text-xs font-semibold text-[#0097A7] hover:underline sm:text-sm"
       >
         <ArrowLeft className="h-4 w-4" />
-        <span>Zurück zum Restaurantmanagement</span>
+        <span>Zurück zum Restaurant Management</span>
       </Link>
 
       {isLoading ? (
@@ -151,6 +151,13 @@ export default function RestaurantDetailsPage({ params }: RestaurantDetailsPageP
 
           {isAdmin && (
             <div className="flex flex-wrap gap-2">
+              <Link
+                href={`/restaurants/${restaurant._id}/dishes`}
+                className="inline-flex h-11 items-center gap-2 rounded-xl bg-[#0097A7] px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#00838F]"
+              >
+                <ChefHat className="h-4 w-4" />
+                <span>Signature Dishes verwalten</span>
+              </Link>
               <Button
                 type="button"
                 variant="outline"
@@ -327,8 +334,6 @@ export default function RestaurantDetailsPage({ params }: RestaurantDetailsPageP
               </div>
             )}
           </section>
-
-          {restaurant.approvalStatus === "approved" && <DishManager restaurant={restaurant} />}
         </>
       )}
     </div>
